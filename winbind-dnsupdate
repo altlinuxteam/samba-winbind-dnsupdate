@@ -1,0 +1,190 @@
+#!/bin/sh
+set -euo pipefail
+
+# Host name vars
+FQDN_NAME=
+HOST_NAME=
+UPPER_HOST_NAME=
+
+# Temp krb cache vars
+TMP_KRB_CCACHE_NAME=
+DOMAIN_REALM=
+
+# Update conf
+TTL=3600
+PTR_UPDATE=1
+
+# To uppercase
+upper()
+{
+    echo -n "$1" | tr '[[:lower:]]' '[[:upper:]]'
+}
+
+# Check net is installed
+check_req()
+{
+    net --help  >/dev/null 2>&1 || ( echo "Error: net not installed" && exit 1)
+}
+
+# Set tmp cache name for krb
+set_cache_name()
+{
+    TMP_KRB_CCACHE_NAME="$(mktemp)"
+    export KRB5CCNAME="$TMP_KRB_CCACHE_NAME"
+}
+
+# Kinit with host cred
+host_kinit()
+{   
+    result="$(kinit -k "$UPPER_HOST_NAME"\$@"$DOMAIN_REALM" 2>&1)" || \
+                                                     (echo  "$result" && exit 1)
+}
+
+check_exist_ptr_record()
+{   
+    ptr_record_exist=1
+    out="$(host "$1" | grep -o "NXDOMAIN")" || ret=1
+    if [ "$out" == "NXDOMAIN" ]; then
+        ptr_record_exist=0
+    fi
+}
+
+check_exist_forward_record()
+{   
+    forward_record_exist=1
+    out="$(host "$1" | grep -o "NXDOMAIN")" || ret=1
+    if [ "$out" == "NXDOMAIN" ]; then
+        forward_record_exist=0
+    fi
+}
+
+get_domain_realm()
+{
+    DOMAIN_REALM="$(upper "$(dnsdomainname)")"
+
+    #"$(net ads info | grep Realm | awk 'NF>1{print $NF}')" || \
+    #                                          (echo "$DOMAIN_REALM" && exit 1)
+}
+
+get_host_name()
+{
+    FQDN_NAME="$(hostname -f)"
+    UPPER_HOST_NAME="$(upper "$(hostname -s)")"
+}
+
+get_connection_iface_to_ldap()
+{   
+    # Get actual dc connection ip
+    dc="$(wbinfo -P | awk -F\" '{print $2}')"
+    dc_ip="$(host "$dc" | awk -F' ' '{print $NF}')"
+
+    # Find iface
+    connect_iface="$(ip route get dport 389 "$dc_ip" | awk -F'dev ' '{print $2;exit}' | awk '{print $1}')" 
+}
+
+get_old_ptr_record()
+{
+    old_ptr_ipv4_record="$(host $1 | awk '{print $1}')"
+}
+
+get_old_ip_addr()
+{   
+    old_ipv4_ip="$(host $1 | awk '{print $4}')"
+}
+
+get_iface_addr()
+{   
+    local iface=$1
+    ipv4_addr=" $(ip addr list "$iface" | \
+                                     awk '/inet/ {print $2}' | \
+                                     cut -d/ -f1 | \
+                                     grep -o "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*")"
+}
+
+generate_ptr_ip()
+{    
+    IFS=. read ip1 ip2 ip3 ip4 <<< "$1"
+    ptr_ipv4_addr="$ip4"."$ip3"."$ip2"."$ip1".in-addr.arpa.
+}
+
+nsupdate_forward_zone_command()
+{   
+    printf "update delete "$FQDN_NAME" in A\nupdate add "$FQDN_NAME" "$TTL" A "$1"\nsend\nquit" | nsupdate -g || return 1
+}
+
+nsupdate_reverse_zone_command()
+{   
+    printf "update delete $2 PTR\nupdate add "$1" "$TTL" PTR "$FQDN_NAME"\nsend\nquit" | nsupdate -g || return 1
+}
+
+update_reverse_zone()
+{   
+    # Remove old PTR record if exist
+    res=0
+    generate_ptr_ip $ipv4_addr
+    get_old_ip_addr "$FQDN_NAME"
+    check_exist_ptr_record $old_ipv4_ip
+    
+    if [[ $ptr_record_exist == 1 ]]; then
+        get_old_ptr_record $old_ipv4_ip
+        nsupdate_reverse_zone_command $ptr_ipv4_addr $old_ptr_ipv4_record || res=1
+    else
+        nsupdate_reverse_zone_command $ptr_ipv4_addr $ptr_ipv4_addr || res=1
+    fi
+
+    if [[ $res == 0 ]]; then
+        echo "Reverse  zone update successful"
+    else
+        echo "Reverse zone update failed"
+        kdestroy -A &>/dev/null
+        unset KRB5CCNAME
+        exit 1
+    fi
+}
+
+update_forward_zone()
+{
+    res=0
+    nsupdate_forward_zone_command $ipv4_addr || res=1
+    if [[ $res == 0 ]]; then
+        echo "Forward zone update successful"
+    else
+        echo "Forward zone update failed"
+        kdestroy -A &>/dev/null
+        unset KRB5CCNAME
+        exit 1
+    fi
+}
+
+main()
+{   
+    # Init vars
+    check_req
+    get_domain_realm
+    get_host_name
+    set_cache_name
+    host_kinit
+
+    # Get the interface through which the connection is established with ldаp
+    get_connection_iface_to_ldap
+    get_iface_addr "$connect_iface"
+
+    #Reverse zone update if PTR_UPDATE is 1
+    if [[ $PTR_UPDATE == 1 ]]; then
+        check_exist_forward_record "$FQDN_NAME"
+        if [[ $forward_record_exist == 1 ]]; then
+            update_reverse_zone
+            update_forward_zone
+        else
+            update_forward_zone
+            update_reverse_zone
+        fi
+    else
+        update_forward_zone
+    fi
+
+    kdestroy -A &>/dev/null
+    unset KRB5CCNAME
+}
+
+main
