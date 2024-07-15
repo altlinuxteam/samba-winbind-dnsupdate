@@ -1,190 +1,442 @@
-#!/bin/sh
-set -euo pipefail
+#!/usr/bin/env sh
+# diable pipefail error
+# shellcheck disable=SC3040
+# disable local vars error
+# shellcheck disable=SC3043
+# disable "<<<" here-strings undefined
+# shellcheck disable=SC3011
+# disable trap ERR undefined
+# shellcheck disable=SC3047
 
-# Host name vars
-FQDN_NAME=
-HOST_NAME=
-UPPER_HOST_NAME=
+set -euo pipefail
 
 # Temp krb cache vars
 TMP_KRB_CCACHE_NAME=
-DOMAIN_REALM=
 
-# Update conf
-TTL=3600
-PTR_UPDATE=1
+log() {
+    local log_message=
+    local log_loevel=
+    log_loevel="$1"
+    log_message="$2"
+    [ "$log_loevel" = "ERROR" ] && \
+        echo "[$log_loevel]: $log_message" 1>&2 || \
+        echo "[$log_loevel]: $log_message"
+}
+
+log_warning() {
+    local log_message=
+    log_message="$1"
+    log "WARNING" "$log_message"
+}
+
+log_error() {
+    local log_message=
+    log_message="$1"
+    log "ERROR" "$log_message"
+}
+
+log_info() {
+    local log_message=
+    log_message="$1"
+    log "INFO" "$log_message"
+}
 
 # To uppercase
-upper()
-{
-    echo -n "$1" | tr '[[:lower:]]' '[[:upper:]]'
+upper() {
+    # shellcheck disable=SC3037
+    echo -n "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+check_winbind_status() {
+    log_info "Check winbind status."
+    if ! systemctl status winbind.service > /dev/null 2>&1; then 
+        log_error "Winbind service is not running." && return 1
+    fi
+    log_info "Winbind is running. Continue."
+    return 0
 }
 
 # Check net is installed
-check_req()
-{
-    net --help  >/dev/null 2>&1 || ( echo "Error: net not installed" && exit 1)
+check_net_is_install() {
+    if ! net --help  >/dev/null 2>&1; then
+        log_error "net is not installed." && return 1
+    fi
+    return 0
 }
 
 # Set tmp cache name for krb
-set_cache_name()
-{
+set_cache_name() {
     TMP_KRB_CCACHE_NAME="$(mktemp)"
     export KRB5CCNAME="$TMP_KRB_CCACHE_NAME"
 }
 
 # Kinit with host cred
-host_kinit()
-{   
-    result="$(kinit -k "$UPPER_HOST_NAME"\$@"$DOMAIN_REALM" 2>&1)" || \
-                                                     (echo  "$result" && exit 1)
+host_kinit() {
+    local upper_host_name=
+    local domain_realm="$2"
+    upper_host_name="$( upper "$1" )"
+
+    result="$(kinit -k "$upper_host_name"\$@"$domain_realm" 2>&1)" || \
+(log_error "kinit error. You should check the availability of the KDC and whether the host is a member of the domain" && \
+log_error "$result" && return 1)
 }
 
-check_exist_ptr_record()
-{   
-    ptr_record_exist=1
-    out="$(host "$1" | grep -o "NXDOMAIN")" || ret=1
-    if [ "$out" == "NXDOMAIN" ]; then
-        ptr_record_exist=0
+check_dns_servers_reacheble() {
+    local host_name="$1"
+    out="$(host -t a "$host_name" 2>&1)"
+    if [ $? -eq 0 ] || grep -q "NXDOMAIN" <<< "$out"; then
+        return 0
+    elif grep -q "no servers could be reached" <<< "$out"; then
+        log_error "DNS server not responding"
+        log_error "$out"
+        return 1
+    else
+        log_error "DNS error"
+        log_error "$out"
+        return 1
     fi
 }
 
-check_exist_forward_record()
-{   
-    forward_record_exist=1
-    out="$(host "$1" | grep -o "NXDOMAIN")" || ret=1
-    if [ "$out" == "NXDOMAIN" ]; then
-        forward_record_exist=0
+check_exist_ptr_record() {
+    local ip_addr="$1"
+    local ptr_record_exist=0
+    local ret=0
+
+    out="$(host -t ptr "$ip_addr" | grep -E -o "NXDOMAIN")"
+    if [ "$out" = "NXDOMAIN" ]; then
+        ptr_record_exist=1
+        log_info "PTR record not exists."
     fi
+
+    return $ptr_record_exist
 }
 
-get_domain_realm()
-{
-    DOMAIN_REALM="$(upper "$(dnsdomainname)")"
-
-    #"$(net ads info | grep Realm | awk 'NF>1{print $NF}')" || \
-    #                                          (echo "$DOMAIN_REALM" && exit 1)
+check_exist_a_record() {
+    local a_record_exist=0
+    local host_name="$1" 
+    local ret=0
+    out="$(host -t a "$host_name" | grep -E -o "NXDOMAIN|has no A record")" || ret=1
+    if [ "$out" = "NXDOMAIN" ] && [ $ret -eq 1 ]; then
+        a_record_exist=1
+        log_info "A record not exists."
+    elif [ "$out" = "has no A record" ]; then
+        a_record_exist=1
+        log_info "A record not exists."
+    fi
+    return $a_record_exist
 }
 
-get_host_name()
-{
-    FQDN_NAME="$(hostname -f)"
-    UPPER_HOST_NAME="$(upper "$(hostname -s)")"
+get_domain_realm() {
+    local domain_realm=
+    domain_realm="$(upper "$(dnsdomainname)")"
+
+    echo "$domain_realm"
 }
 
-get_connection_iface_to_ldap()
-{   
+get_fqdn_hostname() {
+    local fqdn_name=
+    fqdn_name="$(hostname -f)"
+
+    echo "$fqdn_name"
+}
+
+get_short_hostname() {
+    local upper_hostname=
+    upper_hostname="$(upper "$(hostname -s)")"
+
+    echo "$upper_hostname"
+}
+
+get_connection_iface_to_ldap() {
+    local dc=
+    local dc_ip=
+    local connect_iface=
     # Get actual dc connection ip
     dc="$(wbinfo -P | awk -F\" '{print $2}')"
     dc_ip="$(host "$dc" | awk -F' ' '{print $NF}')"
 
     # Find iface
-    connect_iface="$(ip route get dport 389 "$dc_ip" | awk -F'dev ' '{print $2;exit}' | awk '{print $1}')" 
+    connect_iface="$(ip route get dport 389 "$dc_ip" | awk -F'dev ' '{print $2;exit}' | awk '{print $1}')"
+
+    if [ -z "$connect_iface" ]; then
+        log_error "Can't find connection intarface."
+        return 1
+    else
+        echo "$connect_iface"
+    fi
 }
 
-get_old_ptr_record()
-{
-    old_ptr_ipv4_record="$(host $1 | awk '{print $1}')"
+get_old_ipv4_addr() {
+    local hostname="$1"
+    local ret=0
+    local old_ipv4_ip=
+    old_ipv4_ip="$(host -t a "$hostname" | awk '{print $4}')" || ret=1
+
+    if [ $ret -eq 1 ]; then
+        log_error "Can't get old ip addres."
+        return 1
+    else
+        echo "$old_ipv4_ip"
+    fi
 }
 
-get_old_ip_addr()
-{   
-    old_ipv4_ip="$(host $1 | awk '{print $4}')"
+get_old_ptr_record() {
+    local ip_addr="$1"
+    local ret=0
+    local old_ptr_record=
+
+    old_ptr_record="$(host -t a "$1" | awk '{print $1}')" || ret=1
+    if [ $ret -eq 1 ]; then
+        log_error "Can't get old PTR addres."
+        return 1
+    else
+        echo "$old_ptr_record"
+    fi
 }
 
-get_iface_addr()
-{   
-    local iface=$1
-    ipv4_addr=" $(ip addr list "$iface" | \
+get_iface_ipv4_addr() {
+    local iface="$1"
+    local ipv4_addr=
+    local ret=0
+
+    ipv4_addr="$(ip addr list "$iface" | \
                                      awk '/inet/ {print $2}' | \
                                      cut -d/ -f1 | \
-                                     grep -o "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*")"
+                                     grep -o "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*")" || ret=1
+    if [ $ret -eq 1 ]; then
+        log_error "Can't get current ip addres."
+        return 1
+    else
+        echo $ipv4_addr
+    fi
 }
 
-generate_ptr_ip()
-{    
-    IFS=. read ip1 ip2 ip3 ip4 <<< "$1"
+generate_ipv4_ptr_ip() {
+    local ptr_ipv4_addr=
+    IFS=. read -r ip1 ip2 ip3 ip4 <<< "$1"
     ptr_ipv4_addr="$ip4"."$ip3"."$ip2"."$ip1".in-addr.arpa.
+
+    echo $ptr_ipv4_addr
 }
 
-nsupdate_forward_zone_command()
-{   
-    printf "update delete "$FQDN_NAME" in A\nupdate add "$FQDN_NAME" "$TTL" A "$1"\nsend\nquit" | nsupdate -g || return 1
+# Commands for first A records registration
+first_A_record_registration() {
+    local ip_addr="$1"
+    local fqdn_name="$2"
+    local ttl="$3"
+    cat << EOF | nsupdate -g 2>&1 || return 1
+        update add $fqdn_name $ttl A $ip_addr
+        send
+        quit
+EOF
 }
 
-nsupdate_reverse_zone_command()
-{   
-    printf "update delete $2 PTR\nupdate add "$1" "$TTL" PTR "$FQDN_NAME"\nsend\nquit" | nsupdate -g || return 1
+# Commands for first PTR records registration
+first_ipv4_ptr_registration() {
+    local new_ptr_record="$1"
+    local fqdn_name="$2"
+    local ttl="$3"
+    cat << EOF | nsupdate -g 2>&1 || return 1
+        update add $new_ptr_record $ttl PTR $fqdn_name
+        send
+        quit
+EOF
 }
 
-update_reverse_zone()
-{   
-    # Remove old PTR record if exist
-    res=0
-    generate_ptr_ip $ipv4_addr
-    get_old_ip_addr "$FQDN_NAME"
-    check_exist_ptr_record $old_ipv4_ip
-    
-    if [[ $ptr_record_exist == 1 ]]; then
-        get_old_ptr_record $old_ipv4_ip
-        nsupdate_reverse_zone_command $ptr_ipv4_addr $old_ptr_ipv4_record || res=1
-    else
-        nsupdate_reverse_zone_command $ptr_ipv4_addr $ptr_ipv4_addr || res=1
+# Commands for update A records
+nsupdate_a_record_command() {
+    local ip_addr="$1"
+    local fqdn_name="$2"
+    local ttl="$3"
+
+    cat << EOF | nsupdate -g 2>&1|| return 1
+        update delete $fqdn_name in A
+        update add $fqdn_name $ttl A $ip_addr
+        send
+        quit
+EOF
+}
+
+# Commands for update PTR records
+nsupdate_ipv4_ptr_record_command() {
+    local new_ptr_record="$1"
+    local fqdn_name="$2"
+    local ttl="$3"
+    local old_ptr_record="$4"
+
+    cat << EOF | nsupdate -g 2>&1 || return 1
+        update delete $old_ptr_record PTR
+        update add $new_ptr_record $ttl PTR $fqdn_name
+        send
+        quit
+EOF
+}
+
+# Function for update PTR records
+update_ptr_record() {
+    local ipv4_addr="$1"
+    local fqdn_name="$2"
+    local ttl="$3"
+    local ptr_ipv4_addr=
+    local res=0
+    ptr_ipv4_addr="$(generate_ipv4_ptr_ip "$ipv4_addr")"
+
+    if [ $# -gt 3 ]; then
+        local old_ptr_ipv4_addr="$4"
     fi
 
-    if [[ $res == 0 ]]; then
-        echo "Reverse  zone update successful"
+    if [ -z "$old_ptr_ipv4_addr" ]; then
+        out="$(first_ipv4_ptr_registration "$ptr_ipv4_addr" "$fqdn_name" "$ttl")" || res=1
     else
-        echo "Reverse zone update failed"
-        kdestroy -A &>/dev/null
-        unset KRB5CCNAME
-        exit 1
+        out="$(nsupdate_ipv4_ptr_record_command "$ptr_ipv4_addr" "$fqdn_name" "$ttl" "$old_ptr_ipv4_addr")" || res=1
     fi
+
+    if [ $res -eq 0 ]; then
+        log_info "PTR record update successful."
+    else
+        log_error "nsupdate error."
+        log_error "$out"
+        log_error "PTR record update failed."
+        return 1
+    fi
+
+    return 0
 }
 
-update_forward_zone()
-{
-    res=0
-    nsupdate_forward_zone_command $ipv4_addr || res=1
-    if [[ $res == 0 ]]; then
-        echo "Forward zone update successful"
+# Function for update A records
+update_a_record() {
+    local ipv4_addr="$1"
+    local fqdn_name="$2"
+    local ttl="$3"
+    local first_registration="$4"
+    local res=0
+
+    if [ $first_registration -eq 1 ]; then
+        out="$(first_A_record_registration "$ipv4_addr" "$fqdn_name" "$ttl")" || res=1
     else
-        echo "Forward zone update failed"
-        kdestroy -A &>/dev/null
-        unset KRB5CCNAME
-        exit 1
+        out="$(nsupdate_a_record_command "$ipv4_addr" "$fqdn_name" "$ttl")" || res=1
     fi
+    if [ $res -eq 0 ]; then
+        log_info "A record update successful."
+    else
+        log_error "nsupdate error:"
+        log_error "$out"
+        log_error "A record update failed."
+        return 1
+    fi
+
+    return 0
 }
 
-main()
-{   
+# message if update was failed
+error_end_message() {
+    log_info "The update completed with an error."
+}
+
+# message if update was successful
+success_end_message(){ 
+    log_info "The update was successful."
+}
+
+# Destory host credentials
+destroy_credentials() {
+    log_info "Destroy host credential."
+    kdestroy -A > /dev/null 2>&1
+    unset KRB5CCNAME
+}
+
+# TODO Доработать первичную регистрцию A записи.
+# TODO Добавить обработку параметров.
+# TODO Добавить обновление и регистрацию AAAA записей
+# TODO Сделать вывод ошибки из функций nsupdate_command
+
+main() {
+    trap "error_end_message && destroy_credentials" ERR
+
+    # Vars
+    local ttl=3600
+    local ptr_update=1
+    local exist_a_record=0
+    local exist_ptr_record=0
+    local first_registration_flag=0
+    local ret=0
+    local ipv4_addr=
+    local old_ipv4_ip=
+    local old_ptr_ipv4_addr=
+    local connect_iface=
+    local fqdn_name=
+    local upper_hostname=
+    local domain_realm=
+
     # Init vars
-    check_req
-    get_domain_realm
-    get_host_name
-    set_cache_name
-    host_kinit
+    domain_realm="$(get_domain_realm)"
+    upper_hostname="$(get_short_hostname)"
+    fqdn_name="$(get_fqdn_hostname)"
 
-    # Get the interface through which the connection is established with ldаp
-    get_connection_iface_to_ldap
-    get_iface_addr "$connect_iface"
+    # Check
+    check_winbind_status || ret=1
+    check_net_is_install || ret=1
+    check_dns_servers_reacheble "$fqdn_name" || ret=1
 
-    #Reverse zone update if PTR_UPDATE is 1
-    if [[ $PTR_UPDATE == 1 ]]; then
-        check_exist_forward_record "$FQDN_NAME"
-        if [[ $forward_record_exist == 1 ]]; then
-            update_reverse_zone
-            update_forward_zone
+    if [ $ret -eq 0 ]; then
+        # Host kinit
+        set_cache_name
+        host_kinit "$upper_hostname" "$domain_realm"
+
+        # Get the interface through which the connection is established with ldаp
+        connect_iface="$(get_connection_iface_to_ldap)" 
+        ipv4_addr="$(get_iface_ipv4_addr "$connect_iface")"
+
+        check_exist_ptr_record "$ipv4_addr" || exist_ptr_record=1
+        check_exist_a_record "$fqdn_name" || exist_a_record=1
+
+        # Message to recommend deleting the old PTR record if there is no old A record
+        if [ $exist_ptr_record -eq 0 ] && [ $exist_a_record -eq 1 ]; then
+            log_info "The PTR record exists, but the A record is missing and host IP was changed. To avoid duplicate entries,
+you should delete the old entry manually."
+        fi
+        # If A record does not exist the start first registration, else call update command
+        if [ $exist_a_record -eq 1 ]; then
+            log_info "The A record does not exist. Start A record registration."
+            # Set update flag as true and start first registration
+            first_registration_flag=1
+            update_a_record "$ipv4_addr" "$fqdn_name" "$ttl" "$first_registration_flag"
+            # Check if ptr update is enabled
+            if [ $ptr_update -eq 1 ]; then
+                log_info "Start ipv4 PTR record registration."
+                update_ptr_record  "$ipv4_addr" "$fqdn_name" "$ttl"
+            fi
         else
-            update_forward_zone
-            update_reverse_zone
+            # Obtaining an old IP address to check the need for an update
+            old_ipv4_addr="$(get_old_ipv4_addr "$fqdn_name")"
+            log_info "Checking whether the records needs to be updated"
+            if [ "$ipv4_addr" = "$old_ipv4_addr" ]; then
+                log_info "The IP address of interface $connect_iface has not been changed."
+                log_info "The update was skipped"
+                destroy_credentials
+                return 0
+            else
+                # Update addr if hi was changed
+                log_info "The IP address of interface $connect_iface has been changed."
+                log_info "Start the A record update."
+                update_a_record "$ipv4_addr" "$fqdn_name" "$ttl" "$first_registration_flag"
+                if [ $ptr_update -eq 1 ]; then
+                    log_info "Start ipv4 PTR record update."
+                    local old_ptr_ipv4_addr=
+                    old_ptr_ipv4_addr="$(generate_ipv4_ptr_ip "$old_ipv4_addr")"
+                    update_ptr_record "$ipv4_addr" "$fqdn_name" "$ttl" "$old_ptr_ipv4_addr"
+                fi
+            fi
         fi
     else
-        update_forward_zone
+        error_end_message
+        destroy_credentials
+        return 1
     fi
 
-    kdestroy -A &>/dev/null
-    unset KRB5CCNAME
+    success_end_message
+    destroy_credentials
+    return 0
 }
 
 main
