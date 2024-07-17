@@ -1,12 +1,14 @@
 #!/usr/bin/env sh
-# diable pipefail error
+### diable pipefail error
 # shellcheck disable=SC3040
-# disable local vars error
+### disable local vars error
 # shellcheck disable=SC3043
-# disable "<<<" here-strings undefined
+### disable "<<<" here-strings undefined
 # shellcheck disable=SC3011
-# disable trap ERR undefined
+### disable trap ERR undefined
 # shellcheck disable=SC3047
+### disable -n flag for echo indefined error
+# shellcheck disable=SC3037
 
 set -euo pipefail
 
