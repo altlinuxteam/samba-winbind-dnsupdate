@@ -147,6 +147,15 @@ get_short_hostname() {
     echo "$upper_hostname"
 }
 
+validate_hostname() {
+    local hostname="$1"
+    local validate_regex=
+    local ret=0
+    validate_regex="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$"
+    grep -E "$validate_regex" >/dev/null 2>&1 <<< $hostname || ret=1
+    return $ret
+}
+
 get_connection_iface_to_ldap() {
     local dc=
     local dc_ip=
