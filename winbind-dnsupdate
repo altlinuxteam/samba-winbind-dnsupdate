@@ -154,7 +154,7 @@ validate_hostname() {
     local validate_regex=
     local ret=0
     validate_regex="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$"
-    grep -E "$validate_regex" >/dev/null 2>&1 <<< $hostname || ret=1
+    grep -E "$validate_regex" >/dev/null 2>&1 <<< "$hostname" || ret=1
     return $ret
 }
 
@@ -163,7 +163,7 @@ validate_ipv4() {
     local validate_regex=
     local ret=0
     validate_regex="^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
-    grep -E "$validate_regex" >/dev/null 2>&1 <<< $ipv4 || ret=1
+    grep -E "$validate_regex" >/dev/null 2>&1 <<< "$ipv4" || ret=1
     return $ret
 }
 
@@ -174,7 +174,7 @@ get_ip_from_hostname() {
     local ret=1
     if validate_hostname "$hostname"; then
         if out="$(host -t a "$hostname")"; then
-            if ip="$(awk -F' ' '{print $NF}' 2>&1 <<< $out)"; then
+            if ip="$(awk -F' ' '{print $NF}' 2>&1 <<< "$out")"; then
                 if validate_ipv4 "$ip"; then
                     echo -n "$ip" && ret=0
                 else
@@ -199,7 +199,7 @@ get_dc_hostname() {
     local out=
     local ret=1
     if out="$(wbinfo -P)"; then
-        if dc="$(awk -F\" 'NR==1 {print $2}' 2>&1 <<< $out)"; then
+        if dc="$(awk -F\" 'NR==1 {print $2}' 2>&1 <<< "$out")"; then
             if validate_hostname "$dc"; then
                 echo -n "$dc" && ret=0
             else
@@ -225,7 +225,7 @@ get_connection_iface_to_ldap() {
 
     # Get actual dc connection ip
     if dc_hostname="$(get_dc_hostname)"; then
-        if ! dc_ip="$(get_ip_from_hostname $dc_hostname)"; then
+        if ! dc_ip="$(get_ip_from_hostname "$dc_hostname")"; then
             log_warning "Can not resolve domain controller address for $dc_hostname"
         fi
     else
@@ -234,7 +234,7 @@ get_connection_iface_to_ldap() {
 
     # Find iface
     if out="$(ip route get dport 389 "$dc_ip")"; then
-        if connect_iface="$(awk -F'dev ' 'NR==1 {print $2}' <<< $out | awk '{print $1}' 2>&1)"; then
+        if connect_iface="$(awk -F'dev ' 'NR==1 {print $2}' <<< "$out" | awk '{print $1}' 2>&1)"; then
             echo -n "$connect_iface" && ret=0
         else
             log_warning "Can not parse connection interface"
@@ -287,7 +287,7 @@ get_iface_ipv4_addr() {
         log_error "Can't get current ip addres."
         return 1
     else
-        echo $ipv4_addr
+        echo -n "$ipv4_addr"
     fi
 }
 
@@ -296,7 +296,7 @@ generate_ipv4_ptr_ip() {
     IFS=. read -r ip1 ip2 ip3 ip4 <<< "$1"
     ptr_ipv4_addr="$ip4"."$ip3"."$ip2"."$ip1".in-addr.arpa.
 
-    echo $ptr_ipv4_addr
+    echo -n "$ptr_ipv4_addr"
 }
 
 # Commands for first A records registration
@@ -490,7 +490,7 @@ you should delete the old entry manually."
             # Obtaining an old IP address to check the need for an update
             old_ipv4_addr="$(get_old_ipv4_addr "$fqdn_name")"
             log_info "Checking whether the records needs to be updated"
-            if [ "$ipv4_addr" = "$old_ipv4_addr" ]; then
+            if [ "$ipv4_addr" != "$old_ipv4_addr" ]; then
                 log_info "The IP address of interface $connect_iface has not been changed."
                 log_info "The update was skipped"
                 destroy_credentials
