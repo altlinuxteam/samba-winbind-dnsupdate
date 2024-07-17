@@ -165,23 +165,31 @@ validate_ipv4() {
     return $ret
 }
 
-get_connection_iface_to_ldap() {
-    local dc=
-    local dc_ip=
-    local connect_iface=
-    # Get actual dc connection ip
-    dc="$(wbinfo -P | awk -F\" '{print $2}')"
-    dc_ip="$(host "$dc" | awk -F' ' '{print $NF}')"
-
-    # Find iface
-    connect_iface="$(ip route get dport 389 "$dc_ip" | awk -F'dev ' '{print $2;exit}' | awk '{print $1}')"
-
-    if [ -z "$connect_iface" ]; then
-        log_error "Can't find connection intarface."
-        return 1
+get_ip_from_hostname() {
+    local hostname="$1"
+    local out=
+    local ip=
+    local ret=1
+    if validate_hostname "$hostname"; then
+        if out="$(host -t a "$hostname")"; then
+            if ip="$(awk -F' ' '{print $NF}' 2>&1 <<< $out)"; then
+                if validate_ipv4 "$ip"; then
+                    echo -n "$ip" && ret=0
+                else
+                    log_warning "Invalid IPv4 address: $ip"
+                fi
+            else
+                log_warning "Can not parse IPv4 address"
+                log_warning "AWK errror: $ip"
+            fi
+        else
+            log_warning "Can not resolve hostname: $hostname"
+            log_warning "DNS error: $out"
+        fi
     else
-        echo "$connect_iface"
+        log_warning "Invalid hostname: $hostname"
     fi
+    return $ret
 }
 
 get_old_ipv4_addr() {
