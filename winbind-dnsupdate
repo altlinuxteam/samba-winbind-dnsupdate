@@ -459,7 +459,7 @@ main() {
     local first_registration_flag=0
     local ret=0
     local ipv4_addr=
-    local old_ipv4_ip=
+    local old_ipv4_addr=
     local old_ptr_ipv4_addr=
     local connect_iface=
     local fqdn_name=
