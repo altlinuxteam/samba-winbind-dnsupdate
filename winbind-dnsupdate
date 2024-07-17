@@ -20,9 +20,13 @@ log() {
     local log_loevel=
     log_loevel="$1"
     log_message="$2"
-    [ "$log_loevel" = "ERROR" ] && \
-        echo "[$log_loevel]: $log_message" 1>&2 || \
-        echo "[$log_loevel]: $log_message"
+    if [ "$log_loevel" = "ERROR" ]; then
+        echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p err
+    elif [ "$log_loevel" = "WARNING" ]; then
+        echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p warning
+    elif [ "$log_loevel" = "INFO" ]; then
+        echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p info
+    fi
 }
 
 log_warning() {
@@ -85,8 +89,10 @@ host_kinit() {
 
 check_dns_servers_reacheble() {
     local host_name="$1"
+    log_info "Checking the availability of DNS servers"
     out="$(host -t a "$host_name" 2>&1)"
     if [ $? -eq 0 ] || grep -q "NXDOMAIN" <<< "$out"; then
+        log_info "DNS servers available"
         return 0
     elif grep -q "no servers could be reached" <<< "$out"; then
         log_error "DNS server not responding"
@@ -103,13 +109,14 @@ check_exist_ptr_record() {
     local ip_addr="$1"
     local ptr_record_exist=0
     local ret=0
-
+    log_info "Checking the existence of a PTR record"
     out="$(host -t ptr "$ip_addr" | grep -E -o "NXDOMAIN")"
     if [ "$out" = "NXDOMAIN" ]; then
         ptr_record_exist=1
         log_info "PTR record not exists."
+    else
+        log_info "PTR recotd exist."
     fi
-
     return $ptr_record_exist
 }
 
@@ -117,6 +124,7 @@ check_exist_a_record() {
     local a_record_exist=0
     local host_name="$1" 
     local ret=0
+    log_info "Checking the existence of a A record"
     out="$(host -t a "$host_name" | grep -E -o "NXDOMAIN|has no A record")" || ret=1
     if [ "$out" = "NXDOMAIN" ] && [ $ret -eq 1 ]; then
         a_record_exist=1
@@ -124,6 +132,8 @@ check_exist_a_record() {
     elif [ "$out" = "has no A record" ]; then
         a_record_exist=1
         log_info "A record not exists."
+    else
+        log_info "A record exists."
     fi
     return $a_record_exist
 }
@@ -201,6 +211,7 @@ get_dc_hostname() {
     if out="$(wbinfo -P)"; then
         if dc="$(awk -F\" 'NR==1 {print $2}' 2>&1 <<< "$out")"; then
             if validate_hostname "$dc"; then
+                log_info "Domain controller name: $dc"
                 echo -n "$dc" && ret=0
             else
                 log_warning "Domain controller hostname invalid: $dc"
@@ -233,8 +244,11 @@ get_connection_iface_to_ldap() {
     fi
 
     # Find iface
+    log_info "Domain controller IPv4: $dc_ip"
+    log_info "Trying parse connection interface name"
     if out="$(ip route get dport 389 "$dc_ip")"; then
         if connect_iface="$(awk -F'dev ' 'NR==1 {print $2}' <<< "$out" | awk '{print $1}' 2>&1)"; then
+            log_info "Successful. Intraface name: $connect_iface"
             echo -n "$connect_iface" && ret=0
         else
             log_warning "Can not parse connection interface"
@@ -253,7 +267,7 @@ get_old_ipv4_addr() {
     old_ipv4_ip="$(host -t a "$hostname" | awk '{print $4}')" || ret=1
 
     if [ $ret -eq 1 ]; then
-        log_error "Can't get old ip addres."
+        log_error "Can't get old IPv4 addres."
         return 1
     else
         echo "$old_ipv4_ip"
@@ -267,7 +281,7 @@ get_old_ptr_record() {
 
     old_ptr_record="$(host -t a "$1" | awk '{print $1}')" || ret=1
     if [ $ret -eq 1 ]; then
-        log_error "Can't get old PTR addres."
+        log_error "Can't get old IPv4 PTR addres."
         return 1
     else
         echo "$old_ptr_record"
@@ -278,13 +292,12 @@ get_iface_ipv4_addr() {
     local iface="$1"
     local ipv4_addr=
     local ret=0
-
     ipv4_addr="$(ip addr list "$iface" | \
                                      awk '/inet/ {print $2}' | \
                                      cut -d/ -f1 | \
                                      grep -o "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*")" || ret=1
     if [ $ret -eq 1 ]; then
-        log_error "Can't get current ip addres."
+        log_error "Can't get current IPv4 addres."
         return 1
     else
         echo -n "$ipv4_addr"
@@ -372,11 +385,11 @@ update_ptr_record() {
     fi
 
     if [ $res -eq 0 ]; then
-        log_info "PTR record update successful."
+        log_info "IPv4 PTR record update successful."
     else
-        log_error "nsupdate error."
+        log_error "Nsupdate error."
         log_error "$out"
-        log_error "PTR record update failed."
+        log_error "IPv4 PTR record update failed."
         return 1
     fi
 
@@ -399,7 +412,7 @@ update_a_record() {
     if [ $res -eq 0 ]; then
         log_info "A record update successful."
     else
-        log_error "nsupdate error:"
+        log_error "Nsupdate error:"
         log_error "$out"
         log_error "A record update failed."
         return 1
@@ -452,7 +465,7 @@ main() {
     domain_realm="$(get_domain_realm)"
     upper_hostname="$(get_short_hostname)"
     fqdn_name="$(get_fqdn_hostname)"
-
+    log_info "Hostname: $fqdn_name"
     # Check
     check_winbind_status || ret=1
     check_net_is_install || ret=1
@@ -461,8 +474,9 @@ main() {
     if [ $ret -eq 0 ]; then
         # Host kinit
         set_cache_name
+        log_info "Get host credentials"
         host_kinit "$upper_hostname" "$domain_realm"
-
+        log_info "Retrieving host credentials successfully"
         # Get the interface through which the connection is established with ldаp
         connect_iface="$(get_connection_iface_to_ldap)" 
         ipv4_addr="$(get_iface_ipv4_addr "$connect_iface")"
@@ -472,7 +486,7 @@ main() {
 
         # Message to recommend deleting the old PTR record if there is no old A record
         if [ $exist_ptr_record -eq 0 ] && [ $exist_a_record -eq 1 ]; then
-            log_info "The PTR record exists, but the A record is missing and host IP was changed. To avoid duplicate entries,
+            log_warning "The IPv4 PTR record exists, but the A record is missing and host IP was changed. To avoid duplicate entries,\
 you should delete the old entry manually."
         fi
         # If A record does not exist the start first registration, else call update command
@@ -483,25 +497,27 @@ you should delete the old entry manually."
             update_a_record "$ipv4_addr" "$fqdn_name" "$ttl" "$first_registration_flag"
             # Check if ptr update is enabled
             if [ $ptr_update -eq 1 ]; then
-                log_info "Start ipv4 PTR record registration."
+                log_info "Start IPv4 PTR record registration."
                 update_ptr_record  "$ipv4_addr" "$fqdn_name" "$ttl"
             fi
         else
             # Obtaining an old IP address to check the need for an update
             old_ipv4_addr="$(get_old_ipv4_addr "$fqdn_name")"
-            log_info "Checking whether the records needs to be updated"
+            log_info "Checking whether the IPv4 records needs to be updated"
+            log_info "Current IPv4 address: $ipv4_addr"
+            log_info "IPv4 address in DNS server: $old_ipv4_addr"
             if [ "$ipv4_addr" != "$old_ipv4_addr" ]; then
-                log_info "The IP address of interface $connect_iface has not been changed."
+                log_info "The IPv4 address of interface $connect_iface has not been changed."
                 log_info "The update was skipped"
                 destroy_credentials
                 return 0
             else
                 # Update addr if hi was changed
-                log_info "The IP address of interface $connect_iface has been changed."
+                log_info "The IPv4 address of interface $connect_iface has been changed."
                 log_info "Start the A record update."
                 update_a_record "$ipv4_addr" "$fqdn_name" "$ttl" "$first_registration_flag"
                 if [ $ptr_update -eq 1 ]; then
-                    log_info "Start ipv4 PTR record update."
+                    log_info "Start IPv4 PTR record update."
                     local old_ptr_ipv4_addr=
                     old_ptr_ipv4_addr="$(generate_ipv4_ptr_ip "$old_ipv4_addr")"
                     update_ptr_record "$ipv4_addr" "$fqdn_name" "$ttl" "$old_ptr_ipv4_addr"
