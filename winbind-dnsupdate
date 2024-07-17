@@ -77,8 +77,8 @@ host_kinit() {
     upper_host_name="$( upper "$1" )"
 
     result="$(kinit -k "$upper_host_name"\$@"$domain_realm" 2>&1)" || \
-(log_error "kinit error. You should check the availability of the KDC and whether the host is a member of the domain" && \
-log_error "$result" && return 1)
+        (log_error "kinit error. You should check the availability of the KDC and whether the host is a member of the domain" && \
+        log_error "$result" && return 1)
 }
 
 check_dns_servers_reacheble() {
