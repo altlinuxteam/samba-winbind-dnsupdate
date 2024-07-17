@@ -291,17 +291,24 @@ get_old_ptr_record() {
 get_iface_ipv4_addr() {
     local iface="$1"
     local ipv4_addr=
-    local ret=0
-    ipv4_addr="$(ip addr list "$iface" | \
-                                     awk '/inet/ {print $2}' | \
-                                     cut -d/ -f1 | \
-                                     grep -o "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*")" || ret=1
-    if [ $ret -eq 1 ]; then
-        log_error "Can't get current IPv4 addres."
-        return 1
+    local iface_info=
+    local ret=1
+    if iface_info="$(ip -f inet addr show "$iface")"; then
+        if ipv4_addr="$(sed -En -e 's/.*inet ([0-9.]+).*/\1/p' <<< "$iface_info")"; then
+            if validate_ipv4 "$ipv4_addr"; then
+                echo -n "$ipv4_addr" && ret=0
+            else
+                log_warning "Invalid IPv4 address: $ip"
+            fi
+        else
+            log_warning "Can't get current IPv4 addres."
+            log_warning "Parse IPv4 address error: $ipv4_addr "
+        fi
     else
-        echo -n "$ipv4_addr"
+        log_warning "Error getting interface information: $iface_info"
     fi
+
+    return $ret
 }
 
 generate_ipv4_ptr_ip() {
