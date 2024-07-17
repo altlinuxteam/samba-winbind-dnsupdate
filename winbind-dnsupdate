@@ -156,6 +156,15 @@ validate_hostname() {
     return $ret
 }
 
+validate_ipv4() {
+    local ipv4="$1"
+    local validate_regex=
+    local ret=0
+    validate_regex="^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
+    grep -E "$validate_regex" >/dev/null 2>&1 <<< $ipv4 || ret=1
+    return $ret
+}
+
 get_connection_iface_to_ldap() {
     local dc=
     local dc_ip=
