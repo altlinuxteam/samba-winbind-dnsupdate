@@ -10,12 +10,45 @@
 ### disable -n flag for echo indefined error
 # shellcheck disable=SC3037
 
+# shellcheck source=/bin/shell-getopt
+. shell-getopt
+
 set -euo pipefail
 
+# Get params
+PROG_NAME="winbind-dnsupdate"
+OPTIONS_LIST="daemon,ttl:,allow-ptr-update"
+OPTIONS_SHORT_LIST="d,t:,p"
+
+TEMP=$(getopt -n "$PROG_NAME" -o "$OPTIONS_SHORT_LIST" -l "$OPTIONS_LIST" -- "$@")
+eval set -- "$TEMP"
+
+## DNS update options
+ptr_update=0
+ttl=3600
 ## if enable log will send to journald
 run_as_unit=0
 # Temp krb cache vars
 TMP_KRB_CCACHE_NAME=
+
+while :; do
+    case "$1" in
+        -d|--daemon)
+            run_as_unit=1
+            ;;
+        -p|--allow-ptr-update)
+            ptr_update=1 
+            ;;
+        -t|--ttl) shift 
+            ttl="$1"
+            ;;
+        --) shift; break
+            ;;
+        *) fatal "Unrecognized option: $1"
+            ;;
+    esac
+    shift
+done
 
 log() {
     local log_message=
@@ -466,8 +499,8 @@ main() {
     trap "error_end_message && destroy_credentials" ERR
 
     # Vars
-    local ttl=3600
-    local ptr_update=1
+    local ttl="$1"
+    local ptr_update="$2"
     local exist_a_record=0
     local exist_ptr_record=0
     local first_registration_flag=0
@@ -554,4 +587,4 @@ you should delete the old entry manually."
     return 0
 }
 
-main 2>&1
+main "$ttl"  "$ptr_update" 2>&1
