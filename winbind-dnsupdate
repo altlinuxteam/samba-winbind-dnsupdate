@@ -12,6 +12,8 @@
 
 set -euo pipefail
 
+## if enable log will send to journald
+run_as_unit=0
 # Temp krb cache vars
 TMP_KRB_CCACHE_NAME=
 
@@ -21,11 +23,23 @@ log() {
     log_loevel="$1"
     log_message="$2"
     if [ "$log_loevel" = "ERROR" ]; then
-        echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p err
+        if [ $run_as_unit -eq 0 ]; then
+            echo "[$log_loevel]: $log_message" 1>&2
+        else  
+            echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p err
+        fi
     elif [ "$log_loevel" = "WARNING" ]; then
-        echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p warning
+        if [ $run_as_unit -eq 0 ]; then
+            echo "[$log_loevel]: $log_message" 1>&2 
+        else 
+            echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p warning
+        fi
     elif [ "$log_loevel" = "INFO" ]; then
-        echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p info
+        if [ $run_as_unit -eq 0 ]; then
+            echo "[$log_loevel]: $log_message" 1>&2 
+        else
+            echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p info
+        fi
     fi
 }
 
@@ -540,4 +554,4 @@ you should delete the old entry manually."
     return 0
 }
 
-main
+main 2>&1
