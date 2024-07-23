@@ -258,7 +258,6 @@ get_dc_hostname() {
     if out="$(wbinfo -P)"; then
         if dc="$(awk -F\" 'NR==1 {print $2}' 2>&1 <<< "$out")"; then
             if validate_hostname "$dc"; then
-                log_info "Domain controller name: $dc"
                 echo -n "$dc" && ret=0
             else
                 log_warning "Domain controller hostname invalid: $dc"
@@ -282,15 +281,19 @@ get_connection_iface_to_ldap() {
     local ret=1
 
     # Get actual dc connection ip
+    log_info "Trying to get the name and IP address of a domain controller"
     if dc_hostname="$(get_dc_hostname)"; then
         if ! dc_ip="$(get_ip_from_hostname "$dc_hostname")"; then
             log_warning "Can not resolve domain controller address for $dc_hostname"
+        else
+            log_info "Successful. DC info:"
         fi
     else
         log_warning "Can not get domain controller hostname"
     fi
 
     # Find iface
+    log_info "Domain controller name: $dc_hostname"
     log_info "Domain controller IPv4: $dc_ip"
     log_info "Trying parse connection interface name"
     if out="$(ip route get dport 389 "$dc_ip")"; then
