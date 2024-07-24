@@ -15,10 +15,30 @@
 
 set -euo pipefail
 
+# Print info message
+show_usage() {
+    echo ""
+    echo "$PROG_NAME utility for update DNS records."
+    echo "IPv4 is updated by default."
+    echo ""
+    echo "Usage: $PROG_NAME [options]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help                    This message"
+    echo "  -a, --all                     Enable update all records type (IPv4,IPv6,PTR)"
+    echo "  -6, --update-ipv6             Enable update IPv6 records"
+    echo "  -d, --daemon                  For send log to journalctl when programm run as systemd unit"
+    echo "  -t, --ttl [time]              Set TTL"
+    echo "  --allow-ipv4-ptr-update       Enable update IPv4 PTR records"
+    echo "  --allow-ipv6-ptr-update       Enable update IPv6 PTR records"
+    echo ""
+    exit 0;
+}
 
 # Get params
 PROG_NAME="winbind-dnsupdate"
-OPTIONS_LIST="daemon,
+OPTIONS_LIST="help,
+              daemon,
               update-ipv6,
               allow-ipv4-ptr-update,
               allow-ipv6-ptr-update,
@@ -26,7 +46,8 @@ OPTIONS_LIST="daemon,
               only,
               ttl:"
 
-OPTIONS_SHORT_LIST="d,
+OPTIONS_SHORT_LIST="h,
+                    d,
                     6,
                     a,
                     t:"
@@ -47,6 +68,9 @@ TMP_KRB_CCACHE_NAME=
 
 while :; do
     case "$1" in
+        -h|--help)
+            show_usage
+            ;;
         -d|--daemon)
             run_as_unit=1
             ;;
@@ -54,7 +78,7 @@ while :; do
             enable_update_ipv6=1
             ;;
         -a|--all)
-            update_ipv6=1
+            enable_update_ipv6=1
             ipv4_ptr_update=1
             ipv6_ptr_update=1
             ;;
@@ -650,7 +674,7 @@ update_ipv4(){
         log_info "Checking whether the IPv4 records needs to be updated"
         log_info "Current IPv4 address: $ipv4_addr"
         log_info "IPv4 address in DNS server: $old_ipv4_addr"
-        if [ "$ipv4_addr" != "$old_ipv4_addr" ]; then
+        if [ "$ipv4_addr" = "$old_ipv4_addr" ]; then
             log_info "The IPv4 address of interface $connect_iface has not been changed."
             log_info "The update was skipped"
         else
@@ -710,7 +734,7 @@ update_ipv6(){
         log_info "Checking whether the IPv6 records needs to be updated"
         log_info "Current IPv6 address: $ipv6_addr"
         log_info "IPv6 address in DNS server: $old_ipv6_addr"
-        if [ "$ipv6_addr" != "$old_ipv6_addr" ]; then
+        if [ "$ipv6_addr" = "$old_ipv6_addr" ]; then
             log_info "The IPv6 address of interface $connect_iface has not been changed."
             log_info "The update was skipped"
         else
