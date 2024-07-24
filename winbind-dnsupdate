@@ -15,16 +15,30 @@
 
 set -euo pipefail
 
+
 # Get params
 PROG_NAME="winbind-dnsupdate"
-OPTIONS_LIST="daemon,ttl:,allow-ptr-update"
-OPTIONS_SHORT_LIST="d,t:,p"
+OPTIONS_LIST="daemon,
+              update-ipv6,
+              allow-ipv4-ptr-update,
+              allow-ipv6-ptr-update,
+              all,
+              only,
+              ttl:"
+
+OPTIONS_SHORT_LIST="d,
+                    6,
+                    a,
+                    t:"
 
 TEMP=$(getopt -n "$PROG_NAME" -o "$OPTIONS_SHORT_LIST" -l "$OPTIONS_LIST" -- "$@")
 eval set -- "$TEMP"
 
 ## DNS update options
-ptr_update=0
+enable_update_ipv6=0 # Enable update ipv6
+enable_update_ipv4=1 # Enable update ipv4
+ipv4_ptr_update=0 # Enable update ipv4 ptr records
+ipv6_ptr_update=0 # Enable update ipv6 ptr records
 ttl=3600
 ## if enable log will send to journald
 run_as_unit=0
@@ -36,11 +50,22 @@ while :; do
         -d|--daemon)
             run_as_unit=1
             ;;
-        -p|--allow-ptr-update)
-            ptr_update=1 
+        -6|--update-ipv6)
+            enable_update_ipv6=1
+            ;;
+        -a|--all)
+            update_ipv6=1
+            ipv4_ptr_update=1
+            ipv6_ptr_update=1
             ;;
         -t|--ttl) shift 
             ttl="$1"
+            ;;
+        --allow-ipv4-ptr-update)
+            ipv4_ptr_update=1 
+            ;;
+        --allow-ipv6-ptr-update)
+            ipv6_ptr_update=1 
             ;;
         --) shift; break
             ;;
@@ -167,20 +192,34 @@ check_exist_ptr_record() {
     return $ptr_record_exist
 }
 
-check_exist_a_record() {
-    local a_record_exist=0
+check_exist_forward_lookup_record() {
     local host_name="$1" 
+    local address_family="$2"
+    local a_record_exist=0
     local ret=0
-    log_info "Checking the existence of a A record"
-    out="$(host -t a "$host_name" | grep -E -o "NXDOMAIN|has no A record")" || ret=1
+    local record_type=
+
+    if [ "$address_family" = "IPv4" ]; then
+        record_type="A" 
+    elif [ "$address_family" = "IPv6" ]; then
+        record_type="AAAA"
+    else
+        log_warning "Unknown address family"
+    fi
+
+    log_info "Checking the existence of $record_type record"
+    out="$(host -t "$record_type" "$host_name" | grep -E -o "NXDOMAIN|has no A record|has no AAAA record")" || ret=1
     if [ "$out" = "NXDOMAIN" ] && [ $ret -eq 1 ]; then
         a_record_exist=1
-        log_info "A record not exists."
-    elif [ "$out" = "has no A record" ]; then
+        log_info "$address_family record not exists."
+    elif [ "$out" = "has no $record_type record" ]; then
         a_record_exist=1
-        log_info "A record not exists."
+        log_info "$record_type record not exists."
+    elif [ "$out" = "has no AAAA record" ]; then
+        log_info "$record_type record not exists."
+        a_record_exist=1
     else
-        log_info "A record exists."
+        log_info "$address_family record exists."
     fi
     return $a_record_exist
 }
@@ -224,21 +263,48 @@ validate_ipv4() {
     return $ret
 }
 
+validate_ipv6(){
+    local ipv6="$1"
+    local validate_regex=
+    local ret=0
+    validate_regex='^([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{0,4}$'
+    grep -q -E "$validate_regex" <<< "$ipv6" || ret=1
+    return $ret
+}
+
 get_ip_from_hostname() {
     local hostname="$1"
+    local address_family="$2"
+    local ret=1
+    local record_type=
     local out=
     local ip=
-    local ret=1
+    if [ "$address_family" = "IPv4" ]; then
+        record_type="A" 
+    elif [ "$address_family" = "IPv6" ]; then
+        record_type="AAAA"
+    else
+        log_warning "Unknown address family"
+    fi
+
     if validate_hostname "$hostname"; then
-        if out="$(host -t a "$hostname")"; then
+        if out="$(host -t "$record_type" "$hostname")"; then
             if ip="$(awk -F' ' '{print $NF}' 2>&1 <<< "$out")"; then
-                if validate_ipv4 "$ip"; then
-                    echo -n "$ip" && ret=0
-                else
-                    log_warning "Invalid IPv4 address: $ip"
+                if [ "$record_type" = "A" ]; then
+                    if validate_ipv4 "$ip"; then
+                        echo -n "$ip" && ret=0
+                    else
+                        log_warning "Invalid IPv4 address: $ip"
+                    fi
+                elif [ "$record_type" = "AAAA" ]; then
+                    if validate_ipv6 "$ip"; then
+                        echo -n "$ip" && ret=0
+                    else
+                        log_warning "Invalid IPv6 address: $ip"
+                    fi
                 fi
             else
-                log_warning "Can not parse IPv4 address"
+                log_warning "Can not parse IP address"
                 log_warning "AWK errror: $ip"
             fi
         else
@@ -274,6 +340,7 @@ get_dc_hostname() {
 }
 
 get_connection_iface_to_ldap() {
+    local address_family="$1"
     local dc_hostname=
     local dc_ip=
     local connect_iface=
@@ -281,9 +348,9 @@ get_connection_iface_to_ldap() {
     local ret=1
 
     # Get actual dc connection ip
-    log_info "Trying to get the name and IP address of a domain controller"
+    log_info "Trying to get the name and $address_family address of a domain controller"
     if dc_hostname="$(get_dc_hostname)"; then
-        if ! dc_ip="$(get_ip_from_hostname "$dc_hostname")"; then
+        if ! dc_ip="$(get_ip_from_hostname "$dc_hostname" "$address_family")"; then
             log_warning "Can not resolve domain controller address for $dc_hostname"
         else
             log_info "Successful. DC info:"
@@ -294,8 +361,9 @@ get_connection_iface_to_ldap() {
 
     # Find iface
     log_info "Domain controller name: $dc_hostname"
-    log_info "Domain controller IPv4: $dc_ip"
+    log_info "Domain controller $address_family: $dc_ip"
     log_info "Trying parse connection interface name"
+    
     if out="$(ip route get dport 389 "$dc_ip")"; then
         if connect_iface="$(awk -F'dev ' 'NR==1 {print $2}' <<< "$out" | awk '{print $1}' 2>&1)"; then
             log_info "Successful. Intraface name: $connect_iface"
@@ -310,12 +378,13 @@ get_connection_iface_to_ldap() {
     return $ret
 }
 
-get_old_ipv4_addr() {
+get_old_addr() {
     local hostname="$1"
+    local address_family="$2"
     local ret=1
-    local old_ipv4_addr=
-        if old_ipv4_addr="$(get_ip_from_hostname "$hostname")"; then
-            echo -n "$old_ipv4_addr" && ret=0
+    local old_ip_addr=
+        if old_ip_addr="$(get_ip_from_hostname "$hostname" "$address_family")"; then
+            echo -n "$old_ip_addr" && ret=0
         else
             log_error "Can't get old IPv4 addres."
         fi
@@ -359,6 +428,29 @@ get_iface_ipv4_addr() {
     return $ret
 }
 
+get_iface_ipv6_addr(){
+    local iface="$1"
+    local ipv4_addr=
+    local iface_info=
+    local ret=1
+    if iface_info="$(ip -f inet6 addr show "$iface")"; then
+        if ipv6_addr="$(sed -e's/^.*inet6 \([^ ]*\)\/.*$/\1/;t;d' <<< "$iface_info")"; then
+            if validate_ipv6 "$ipv6_addr"; then
+                echo -n "$ipv6_addr" && ret=0
+            else
+                log_warning "Invalid IPv6 address: $ip"
+            fi
+        else
+            log_warning "Can't get current IPv6 addres."
+            log_warning "Parse IPv6 address error: $ipv4_addr "
+        fi
+    else
+        log_warning "Error getting interface information: $iface_info"
+    fi
+
+    return $ret
+}
+
 generate_ipv4_ptr_ip() {
     local ptr_ipv4_addr=
     IFS=. read -r ip1 ip2 ip3 ip4 <<< "$1"
@@ -367,20 +459,41 @@ generate_ipv4_ptr_ip() {
     echo -n "$ptr_ipv4_addr"
 }
 
+generate_ipv6_ptr_ip() {
+    local ipv6_addr="$1"
+    local ptr_ipv6_addr=
+
+    ptr_ipv6_addr="$(awk -F: 'BEGIN {OFS=""; } {
+                addCount = 9 - NF;
+                for(i=1; i<=NF;i++) {
+                    if(length($i) == 0) {
+                        for(j=1;j<=addCount;j++) {
+                            $i = ($i "0000")
+                        ;}
+                    } else { 
+                        $i = substr(("0000" $i), length($i)+5-4)
+                    ;}
+                };
+            print}' <<< "$ipv6_addr" | rev | sed -e "s/./&./g")"
+
+    echo "$ptr_ipv6_addr"ip6.arpa
+}
+
 # Commands for first A records registration
-first_A_record_registration() {
+first_forward_lookup_record_registration() {
     local ip_addr="$1"
     local fqdn_name="$2"
     local ttl="$3"
+    local record_type="$4"
     cat << EOF | nsupdate -g 2>&1 || return 1
-        update add $fqdn_name $ttl A $ip_addr
+        update add $fqdn_name $ttl $record_type $ip_addr
         send
         quit
 EOF
 }
 
 # Commands for first PTR records registration
-first_ipv4_ptr_registration() {
+first_ptr_registration() {
     local new_ptr_record="$1"
     local fqdn_name="$2"
     local ttl="$3"
@@ -392,26 +505,25 @@ EOF
 }
 
 # Commands for update A records
-nsupdate_a_record_command() {
+nsupdate_forward_lookup_record_command() {
     local ip_addr="$1"
     local fqdn_name="$2"
     local ttl="$3"
-
+    local record_type="$4"
     cat << EOF | nsupdate -g 2>&1|| return 1
-        update delete $fqdn_name in A
-        update add $fqdn_name $ttl A $ip_addr
+        update delete $fqdn_name in $record_type
+        update add $fqdn_name $ttl $record_type $ip_addr
         send
         quit
 EOF
 }
 
 # Commands for update PTR records
-nsupdate_ipv4_ptr_record_command() {
+nsupdate_ptr_record_command() {
     local new_ptr_record="$1"
     local fqdn_name="$2"
     local ttl="$3"
     local old_ptr_record="$4"
-
     cat << EOF | nsupdate -g 2>&1 || return 1
         update delete $old_ptr_record PTR
         update add $new_ptr_record $ttl PTR $fqdn_name
@@ -421,30 +533,39 @@ EOF
 }
 
 # Function for update PTR records
-update_ptr_record() {
-    local ipv4_addr="$1"
+call_update_ptr_record() {
+    local ip_addr="$1"
     local fqdn_name="$2"
     local ttl="$3"
-    local ptr_ipv4_addr=
+    local address_family="$4"
     local res=0
-    ptr_ipv4_addr="$(generate_ipv4_ptr_ip "$ipv4_addr")"
+    local new_ptr_addr=
+    local old_ptr_addr=
 
-    if [ $# -gt 3 ]; then
-        local old_ptr_ipv4_addr="$4"
+    if [ "$address_family" = "IPv4" ]; then
+        new_ptr_addr="$(generate_ipv4_ptr_ip "$ip_addr")" 
+    elif [ "$address_family" = "IPv6" ]; then
+        new_ptr_addr="$(generate_ipv6_ptr_ip "$ip_addr")"
+    else
+        log_warning "Unknown address family"
     fi
 
-    if [ -z "$old_ptr_ipv4_addr" ]; then
-        out="$(first_ipv4_ptr_registration "$ptr_ipv4_addr" "$fqdn_name" "$ttl")" || res=1
+    if [ $# -gt 4 ]; then
+        local old_ptr_addr="$5"
+    fi
+
+    if [ -z "$old_ptr_addr" ]; then
+        out="$(first_ptr_registration "$new_ptr_addr" "$fqdn_name" "$ttl")" || res=1
     else
-        out="$(nsupdate_ipv4_ptr_record_command "$ptr_ipv4_addr" "$fqdn_name" "$ttl" "$old_ptr_ipv4_addr")" || res=1
+        out="$(nsupdate_ptr_record_command "$new_ptr_addr" "$fqdn_name" "$ttl" "$old_ptr_addr")" || res=1
     fi
 
     if [ $res -eq 0 ]; then
-        log_info "IPv4 PTR record update successful."
+        log_info "$address_family PTR record update successful."
     else
         log_error "Nsupdate error."
         log_error "$out"
-        log_error "IPv4 PTR record update failed."
+        log_error "$address_family PTR record update failed."
         return 1
     fi
 
@@ -452,17 +573,26 @@ update_ptr_record() {
 }
 
 # Function for update A records
-update_a_record() {
+call_update_forward_lookup_record() {
     local ipv4_addr="$1"
     local fqdn_name="$2"
     local ttl="$3"
-    local first_registration="$4"
+    local address_family="$4"
+    local first_registration="$5"
     local res=0
+    local record_type=
 
-    if [ $first_registration -eq 1 ]; then
-        out="$(first_A_record_registration "$ipv4_addr" "$fqdn_name" "$ttl")" || res=1
+    if [ "$address_family" = "IPv4" ]; then
+        record_type="A" 
+    elif [ "$address_family" = "IPv6" ]; then
+        record_type="AAAA"
     else
-        out="$(nsupdate_a_record_command "$ipv4_addr" "$fqdn_name" "$ttl")" || res=1
+        log_warning "Unknown address family"
+    fi
+    if [ "$first_registration" -eq 1 ]; then
+        out="$(first_forward_lookup_record_registration "$ipv4_addr" "$fqdn_name" "$ttl" "$record_type")" || res=1
+    else
+        out="$(nsupdate_forward_lookup_record_command "$ipv4_addr" "$fqdn_name" "$ttl" "$record_type")" || res=1
     fi
     if [ $res -eq 0 ]; then
         log_info "A record update successful."
@@ -474,6 +604,129 @@ update_a_record() {
     fi
 
     return 0
+}
+
+update_ipv4(){
+    local fqdn_name="$1"
+    local ttl="$2"
+    local ptr_update="$3"
+    local exist_a_record=0
+    local exist_ptr_record=0
+    local first_registration_flag=0
+    local address_family="IPv4"
+    local ipv4_addr=
+    local old_ipv4_addr=
+    local old_ptr_ipv4_addr=
+    local connect_iface=
+
+    # Get the interface through which the connection is established with ldаp
+    connect_iface="$(get_connection_iface_to_ldap "$address_family")" 
+    ipv4_addr="$(get_iface_ipv4_addr "$connect_iface")"
+
+    check_exist_forward_lookup_record "$fqdn_name" "$address_family" || exist_a_record=1
+
+    if [ "$ptr_update" -eq 1 ]; then
+        check_exist_ptr_record "$ipv4_addr" || exist_ptr_record=1
+        # Message to recommend deleting the old PTR record if there is no old A record
+        if [ $exist_ptr_record -eq 0 ] && [ $exist_a_record -eq 1 ]; then
+            log_warning "The IPv4 PTR record exists, but the A record is missing and host IP was changed. To avoid duplicate entries,\
+    you should delete the old entry manually."
+        fi
+    fi
+    # If A record does not exist the start first registration, else call update command
+    if [ $exist_a_record -eq 1 ]; then
+        log_info "The A record does not exist. Start A record registration."
+        # Set update flag as true and start first registration
+        first_registration_flag=1
+        call_update_forward_lookup_record "$ipv4_addr" "$fqdn_name" "$ttl" "$address_family" "$first_registration_flag"
+        # Check if ptr update is enabled
+        if [ "$ptr_update" -eq 1 ]; then
+            log_info "Start IPv4 PTR record registration."
+            call_update_ptr_record  "$ipv4_addr" "$fqdn_name" "$ttl"
+        fi
+    else
+        # Obtaining an old IP address to check the need for an update
+        old_ipv4_addr="$(get_old_addr "$fqdn_name" "$address_family")"
+        log_info "Checking whether the IPv4 records needs to be updated"
+        log_info "Current IPv4 address: $ipv4_addr"
+        log_info "IPv4 address in DNS server: $old_ipv4_addr"
+        if [ "$ipv4_addr" != "$old_ipv4_addr" ]; then
+            log_info "The IPv4 address of interface $connect_iface has not been changed."
+            log_info "The update was skipped"
+        else
+            # Update addr if hi was changed
+            log_info "The IPv4 address of interface $connect_iface has been changed."
+            log_info "Start the A record update."
+            call_update_forward_lookup_record "$ipv4_addr" "$fqdn_name" "$ttl" "$address_family" "$first_registration_flag"
+            if [ "$ptr_update" -eq 1 ]; then
+                log_info "Start IPv4 PTR record update."
+                local old_ptr_ipv4_addr=
+                old_ptr_ipv4_addr="$(generate_ipv4_ptr_ip "$old_ipv4_addr")"
+                call_update_ptr_record "$ipv4_addr" "$fqdn_name" "$ttl" "$address_family" "$old_ptr_ipv4_addr"
+            fi
+        fi
+    fi
+    log_info "IPv4 update was successful"
+}
+
+update_ipv6(){
+    local fqdn_name="$1"
+    local ttl="$2"
+    local ptr_update="$3"
+    local exist_aaaa_record=0
+    local exist_ptr_record=0
+    local first_registration_flag=0
+    local address_family="IPv6"
+    local ipv6_addr=
+    local old_ipv6_addr=
+    local old_ptr_ipv6_addr=
+    local connect_iface=
+
+    connect_iface="$(get_connection_iface_to_ldap "$address_family")"
+    ipv6_addr="$(get_iface_ipv6_addr "$connect_iface")"
+
+    check_exist_forward_lookup_record "$fqdn_name"  "$address_family" || exist_aaaa_record=1
+    if [ "$ptr_update" -eq 1 ]; then
+        check_exist_ptr_record "$ipv6_addr" || exist_ptr_record=1
+
+        if [ $exist_ptr_record -eq 0 ] && [ $exist_aaaa_record -eq 1 ]; then
+            log_warning "The IPv6 PTR record exists, but the AAAA record is missing and host IP was changed. To avoid duplicate entries,\
+    you should delete the old entry manually."
+        fi
+    fi
+
+    if [ $exist_aaaa_record -eq 1 ]; then
+        log_info "The AAAA record does not exist. Start AAAA record registration."
+        # Set update flag as true and start first registration
+        first_registration_flag=1
+        call_update_forward_lookup_record "$ipv6_addr" "$fqdn_name" "$ttl" "$address_family" "$first_registration_flag"
+        # Check if ptr update is enabled
+        if [ "$ptr_update" -eq 1 ]; then
+            log_info "Start IPv6 PTR record registration."
+            call_update_ptr_record  "$ipv6_addr" "$fqdn_name" "$ttl"
+        fi
+    else
+        old_ipv6_addr="$(get_old_addr "$fqdn_name" "$address_family")"
+        log_info "Checking whether the IPv6 records needs to be updated"
+        log_info "Current IPv6 address: $ipv6_addr"
+        log_info "IPv6 address in DNS server: $old_ipv6_addr"
+        if [ "$ipv6_addr" != "$old_ipv6_addr" ]; then
+            log_info "The IPv6 address of interface $connect_iface has not been changed."
+            log_info "The update was skipped"
+        else
+            # Update addr if hi was changed
+            log_info "The IPv6 address of interface $connect_iface has been changed."
+            log_info "Start the AAAA record update."
+            call_update_forward_lookup_record "$ipv6_addr" "$fqdn_name" "$ttl" "$address_family" "$first_registration_flag"
+            if [ "$ptr_update" -eq 1 ]; then
+                log_info "Start IPv6 PTR record update."
+                local old_ptr_ipv6_addr=
+                old_ptr_ipv6_addr="$(generate_ipv6_ptr_ip "$old_ipv6_addr")"
+                call_update_ptr_record "$ipv6_addr" "$fqdn_name" "$ttl" "$address_family" "$old_ptr_ipv6_addr"
+            fi
+        fi
+    fi
+    log_info "IPv6 update was successful"
 }
 
 # message if update was failed
@@ -503,15 +756,11 @@ main() {
 
     # Vars
     local ttl="$1"
-    local ptr_update="$2"
-    local exist_a_record=0
-    local exist_ptr_record=0
-    local first_registration_flag=0
+    local update_ipv4="$2"
+    local update_ipv6="$3"
+    local ipv4_ptr_update="$4"
+    local ipv6_ptr_update="$5"
     local ret=0
-    local ipv4_addr=
-    local old_ipv4_addr=
-    local old_ptr_ipv4_addr=
-    local connect_iface=
     local fqdn_name=
     local upper_hostname=
     local domain_realm=
@@ -532,53 +781,20 @@ main() {
         log_info "Get host credentials"
         host_kinit "$upper_hostname" "$domain_realm"
         log_info "Retrieving host credentials successfully"
-        # Get the interface through which the connection is established with ldаp
-        connect_iface="$(get_connection_iface_to_ldap)" 
-        ipv4_addr="$(get_iface_ipv4_addr "$connect_iface")"
 
-        check_exist_ptr_record "$ipv4_addr" || exist_ptr_record=1
-        check_exist_a_record "$fqdn_name" || exist_a_record=1
+        if [ "$update_ipv4" -eq 1 ]; then
+            log_info "----------------------------------------------------------"
+            log_info "Update IPv4"
+            update_ipv4 "$fqdn_name" "$ttl" "$ipv4_ptr_update" 
+        fi
 
-        # Message to recommend deleting the old PTR record if there is no old A record
-        if [ $exist_ptr_record -eq 0 ] && [ $exist_a_record -eq 1 ]; then
-            log_warning "The IPv4 PTR record exists, but the A record is missing and host IP was changed. To avoid duplicate entries,\
-you should delete the old entry manually."
+        if [ "$update_ipv6" -eq 1 ]; then
+            log_info "----------------------------------------------------------"
+            log_info "Update IPv6"
+            update_ipv6 "$fqdn_name" "$ttl" "$ipv6_ptr_update"
+            log_info "----------------------------------------------------------"
         fi
-        # If A record does not exist the start first registration, else call update command
-        if [ $exist_a_record -eq 1 ]; then
-            log_info "The A record does not exist. Start A record registration."
-            # Set update flag as true and start first registration
-            first_registration_flag=1
-            update_a_record "$ipv4_addr" "$fqdn_name" "$ttl" "$first_registration_flag"
-            # Check if ptr update is enabled
-            if [ $ptr_update -eq 1 ]; then
-                log_info "Start IPv4 PTR record registration."
-                update_ptr_record  "$ipv4_addr" "$fqdn_name" "$ttl"
-            fi
-        else
-            # Obtaining an old IP address to check the need for an update
-            old_ipv4_addr="$(get_old_ipv4_addr "$fqdn_name")"
-            log_info "Checking whether the IPv4 records needs to be updated"
-            log_info "Current IPv4 address: $ipv4_addr"
-            log_info "IPv4 address in DNS server: $old_ipv4_addr"
-            if [ "$ipv4_addr" != "$old_ipv4_addr" ]; then
-                log_info "The IPv4 address of interface $connect_iface has not been changed."
-                log_info "The update was skipped"
-                destroy_credentials
-                return 0
-            else
-                # Update addr if hi was changed
-                log_info "The IPv4 address of interface $connect_iface has been changed."
-                log_info "Start the A record update."
-                update_a_record "$ipv4_addr" "$fqdn_name" "$ttl" "$first_registration_flag"
-                if [ $ptr_update -eq 1 ]; then
-                    log_info "Start IPv4 PTR record update."
-                    local old_ptr_ipv4_addr=
-                    old_ptr_ipv4_addr="$(generate_ipv4_ptr_ip "$old_ipv4_addr")"
-                    update_ptr_record "$ipv4_addr" "$fqdn_name" "$ttl" "$old_ptr_ipv4_addr"
-                fi
-            fi
-        fi
+
     else
         error_end_message
         destroy_credentials
@@ -590,4 +806,4 @@ you should delete the old entry manually."
     return 0
 }
 
-main "$ttl"  "$ptr_update" 2>&1
+main "$ttl" "$enable_update_ipv4" "$enable_update_ipv6" "$ipv4_ptr_update" "$ipv6_ptr_update"   2>&1
