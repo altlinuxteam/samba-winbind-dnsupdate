@@ -325,6 +325,7 @@ get_ip_from_hostname() {
                         echo -n "$ip" && ret=0
                     else
                         log_warning "Invalid IPv6 address: $ip"
+                        log_warning "$out"
                     fi
                 fi
             else
@@ -376,11 +377,13 @@ get_connection_iface_to_ldap() {
     if dc_hostname="$(get_dc_hostname)"; then
         if ! dc_ip="$(get_ip_from_hostname "$dc_hostname" "$address_family")"; then
             log_warning "Can not resolve domain controller address for $dc_hostname"
+            return $ret
         else
             log_info "Successful. DC info:"
         fi
     else
         log_warning "Can not get domain controller hostname"
+        return $ret
     fi
 
     # Find iface
@@ -727,7 +730,7 @@ update_ipv6(){
         # Check if ptr update is enabled
         if [ "$ptr_update" -eq 1 ]; then
             log_info "Start IPv6 PTR record registration."
-            call_update_ptr_record  "$ipv6_addr" "$fqdn_name" "$ttl"
+            call_update_ptr_record  "$ipv6_addr" "$fqdn_name" "$ttl" "$address_family"
         fi
     else
         old_ipv6_addr="$(get_old_addr "$fqdn_name" "$address_family")"
