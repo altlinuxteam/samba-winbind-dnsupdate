@@ -10,6 +10,9 @@ BuildArch: noarch
 Group: System/Configuration/Networking
 Source:   %name-%version.tar
 
+BuildRequires(pre): rpm-macros-alterator
+BuildRequires: shellcheck
+
 Requires: samba-winbind
 Requires: samba-winbind-clients
 Requires: samba-common-tools
@@ -25,10 +28,9 @@ on a DNS server when used as a winbind backend
 %prep
 %setup
 
-# Change version
 %build
-sed -i 's/^VERSION=.*/VERSION=%version/' %name
-
+# Change version
+sed -i 's/^VERSION=.*/VERSION=%version/' winbind-dnsupdate
 
 %install
 
@@ -39,7 +41,8 @@ install -Dm 644 winbind-dnsupdate-completions \
 install -Dm 644 winbind-dnsupdate.timer %buildroot%_unitdir/winbind-dnsupdate/winbind-dnsupdate.timer
 install -Dm 644 winbind-dnsupdate.service %buildroot%_unitdir/winbind-dnsupdate/winbind-dnsupdate.service
 
-
+%check
+shellcheck winbind-dnsupdate
 
 %files
 %_bindir/winbind-dnsupdate
