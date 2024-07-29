@@ -1,4 +1,23 @@
 #!/usr/bin/env sh
+# Winbind DNS update tool
+# Dynamic dns update for winbind backend
+#
+# Copyright (C) 2024 Evgenii Sozonov  <arzdez@altlinux.org>
+# Copyright (C) 2024 Andrey Limachko <liannnix@altlinux.org>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 ### diable pipefail error
 # shellcheck disable=SC3040
 ### disable local vars error
@@ -677,7 +696,7 @@ update_ipv4(){
         log_info "Checking whether the IPv4 records needs to be updated"
         log_info "Current IPv4 address: $ipv4_addr"
         log_info "IPv4 address in DNS server: $old_ipv4_addr"
-        if [ "$ipv4_addr" = "$old_ipv4_addr" ]; then
+        if [ "$ipv4_addr" != "$old_ipv4_addr" ]; then
             log_info "The IPv4 address of interface $connect_iface has not been changed."
             log_info "The update was skipped"
         else
@@ -737,7 +756,7 @@ update_ipv6(){
         log_info "Checking whether the IPv6 records needs to be updated"
         log_info "Current IPv6 address: $ipv6_addr"
         log_info "IPv6 address in DNS server: $old_ipv6_addr"
-        if [ "$ipv6_addr" = "$old_ipv6_addr" ]; then
+        if [ "$ipv6_addr" != "$old_ipv6_addr" ]; then
             log_info "The IPv6 address of interface $connect_iface has not been changed."
             log_info "The update was skipped"
         else
