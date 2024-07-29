@@ -44,6 +44,7 @@ show_usage() {
     echo ""
     echo "Options:"
     echo "  -h, --help                    This message"
+    echo "  -v, --version                 Display version number"
     echo "  -a, --all                     Enable update all records type (IPv4,IPv6,PTR)"
     echo "  -6, --update-ipv6             Enable update IPv6 records"
     echo "  -d, --daemon                  For send log to journalctl when programm run as systemd unit"
@@ -54,9 +55,17 @@ show_usage() {
     exit 0;
 }
 
+print_version()
+{
+    echo "$VERSION"
+    exit 0;
+}
+
 # Get params
 PROG_NAME="winbind-dnsupdate"
+VERSION=0.1
 OPTIONS_LIST="help,
+              version,
               daemon,
               update-ipv6,
               allow-ipv4-ptr-update,
@@ -66,6 +75,7 @@ OPTIONS_LIST="help,
               ttl:"
 
 OPTIONS_SHORT_LIST="h,
+                    v
                     d,
                     6,
                     a,
@@ -89,6 +99,9 @@ while :; do
     case "$1" in
         -h|--help)
             show_usage
+            ;;
+        -v|--version)
+            print_version
             ;;
         -d|--daemon)
             run_as_unit=1

@@ -25,6 +25,11 @@ on a DNS server when used as a winbind backend
 %prep
 %setup
 
+# Change version
+%build
+sed -i 's/^VERSION=.*/VERSION=%version/' %name
+
+
 %install
 
 install -Dm 755 winbind-dnsupdate %buildroot/%_bindir/winbind-dnsupdate
@@ -33,6 +38,7 @@ install -Dm 644 winbind-dnsupdate-completions \
 
 install -Dm 644 winbind-dnsupdate.timer %buildroot%_unitdir/winbind-dnsupdate/winbind-dnsupdate.timer
 install -Dm 644 winbind-dnsupdate.service %buildroot%_unitdir/winbind-dnsupdate/winbind-dnsupdate.service
+
 
 
 %files
