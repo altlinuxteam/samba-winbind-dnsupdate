@@ -28,6 +28,9 @@
 # shellcheck disable=SC3047
 ### disable -n flag for echo indefined error
 # shellcheck disable=SC3037
+### disable /bin/shell-getopt error
+# shellcheck disable=SC1091
+
 
 # shellcheck source=/bin/shell-getopt
 . shell-getopt
@@ -217,9 +220,10 @@ host_kinit() {
 
 check_dns_servers_reacheble() {
     local host_name="$1"
+    local ret=
     log_info "Checking the availability of DNS servers"
-    out="$(host -t a "$host_name" 2>&1)"
-    if [ $? -eq 0 ] || grep -q "NXDOMAIN" <<< "$out"; then
+    out="$(host -t a "$host_name" 2>&1)" || ret=1
+    if [ $ret -eq 0 ] || grep -q "NXDOMAIN" <<< "$out"; then
         log_info "DNS servers available"
         return 0
     elif grep -q "no servers could be reached" <<< "$out"; then
