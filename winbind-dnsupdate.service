@@ -1,10 +1,11 @@
 [Unit]
 Description=Update dns record service
-After=network.target
+After=network.target network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=SomePath
+EnvironmentFile=-/etc/sysconfig/winbind-dnsupdate
+ExecStart=/usr/bin/winbind-dnsupdate $OPTIONS
 
 [Install]
 WantedBy=multi-user.target
