@@ -713,7 +713,7 @@ update_ipv4(){
         log_info "Checking whether the IPv4 records needs to be updated"
         log_info "Current IPv4 address: $ipv4_addr"
         log_info "IPv4 address in DNS server: $old_ipv4_addr"
-        if [ "$ipv4_addr" != "$old_ipv4_addr" ]; then
+        if [ "$ipv4_addr" = "$old_ipv4_addr" ]; then
             log_info "The IPv4 address of interface $connect_iface has not been changed."
             log_info "The update was skipped"
         else
@@ -773,7 +773,7 @@ update_ipv6(){
         log_info "Checking whether the IPv6 records needs to be updated"
         log_info "Current IPv6 address: $ipv6_addr"
         log_info "IPv6 address in DNS server: $old_ipv6_addr"
-        if [ "$ipv6_addr" != "$old_ipv6_addr" ]; then
+        if [ "$ipv6_addr" = "$old_ipv6_addr" ]; then
             log_info "The IPv6 address of interface $connect_iface has not been changed."
             log_info "The update was skipped"
         else
