@@ -17,11 +17,6 @@ BuildRequires(pre): rpm-macros-alterator
 BuildRequires: shellcheck
 
 Requires: samba-winbind
-Requires: samba-winbind-clients
-Requires: samba-common-tools
-Requires: krb5-kinit
-Requires: net-tools
-Requires: bind-utils
 
 %description
 A program that implements dynamic update of addresses
@@ -39,18 +34,18 @@ sed -i 's/^VERSION=.*/VERSION=%version/' %script_name
 install -Dm 755 %script_name %buildroot/%_bindir/%script_name
 install -Dm 644 %script_name-completions \
      %buildroot%_datadir/bash-completion/completions/%script_name
-install -Dm 644 %script_name.timer %buildroot%_unitdir/%script_name/%script_name.timer
-install -Dm 644 %script_name.service %buildroot%_unitdir/%script_name/%script_name.service
+install -Dm 644 %script_name.timer %buildroot%_unitdir/%script_name.timer
+install -Dm 644 %script_name.service %buildroot%_unitdir/%script_name.service
 
 %check
 shellcheck %script_name
 
 %files
 %_bindir/%script_name
-%_unitdir/%script_name/%script_name.timer
-%_unitdir/%script_name/%script_name.service
+%_unitdir/%script_name.timer
+%_unitdir/%script_name.service
 %_datadir/bash-completion/completions/%script_name
 
 %changelog
 * Mon Jul 29 2024 Evgenii Sozonov  <arzdez@altlinux.org> 0.1-alt1
-- Initial release
+- Initial release.
