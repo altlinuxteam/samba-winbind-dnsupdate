@@ -32,7 +32,7 @@ sed -i 's/^VERSION=.*/VERSION=%version/' %script_name
 %install
 
 install -Dm 755 %script_name %buildroot/%_bindir/%script_name
-install -Dm 644 %script_name-completions \
+install -Dm 644 %script_name.bash-completion \
      %buildroot%_datadir/bash-completion/completions/%script_name
 install -Dm 644 %script_name.timer %buildroot%_unitdir/%script_name.timer
 install -Dm 644 %script_name.service %buildroot%_unitdir/%script_name.service
