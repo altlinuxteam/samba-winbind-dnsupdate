@@ -2,18 +2,17 @@
 
 Name: samba-winbind-dnsupdate
 Version: 0.1
-Release: alt1
+Release: alt2
 
 Summary: Dynamic dns update for winbind backend
 License: GPLv3
-URL: https://github.com/Arzdez/samba-winbind-dnsupdate.git
-VCS: https://github.com/Arzdez/samba-winbind-dnsupdate.git
+URL: https://github.com/altlinuxteam/samba-winbind-dnsupdate
+VCS: https://github.com/altlinuxteam/samba-winbind-dnsupdate
 
 BuildArch: noarch
 Group: System/Configuration/Networking
-Source:   %name-%version.tar
+Source: %name-%version.tar
 
-BuildRequires(pre): rpm-macros-alterator
 BuildRequires: shellcheck
 
 Requires: samba-winbind
@@ -49,5 +48,8 @@ shellcheck %script_name
 %_sysconfdir/sysconfig/%script_name
 
 %changelog
+* Wed Jul 31 2024 Andrey Limachko <liannnix@altlinux.org> 0.1-alt2
+- Build for sisyphus.
+
 * Mon Jul 29 2024 Evgenii Sozonov  <arzdez@altlinux.org> 0.1-alt1
 - Initial release.
