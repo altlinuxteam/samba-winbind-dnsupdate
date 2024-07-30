@@ -1,3 +1,5 @@
+%define script_name winbind-dnsupdate
+
 Name: samba-winbind-dnsupdate
 Version: 0.1
 Release: alt1
@@ -31,25 +33,25 @@ on a DNS server when used as a winbind backend
 
 %build
 # Change version
-sed -i 's/^VERSION=.*/VERSION=%version/' winbind-dnsupdate
+sed -i 's/^VERSION=.*/VERSION=%version/' %script_name
 
 %install
 
-install -Dm 755 winbind-dnsupdate %buildroot/%_bindir/winbind-dnsupdate
-install -Dm 644 winbind-dnsupdate-completions \
-     %buildroot%_sysconfdir/bash_completion.d/winbind-dnsupdate-completions
+install -Dm 755 %script_name %buildroot/%_bindir/%script_name
+install -Dm 644 %script_name-completions \
+     %buildroot%_datadir/bash-completion/completions/%script_name
 
-install -Dm 644 winbind-dnsupdate.timer %buildroot%_unitdir/winbind-dnsupdate/winbind-dnsupdate.timer
-install -Dm 644 winbind-dnsupdate.service %buildroot%_unitdir/winbind-dnsupdate/winbind-dnsupdate.service
+install -Dm 644 %script_name.timer %buildroot%_unitdir/%script_name/%script_name.timer
+install -Dm 644 %script_name.service %buildroot%_unitdir/%script_name/%script_name.service
 
 %check
-shellcheck winbind-dnsupdate
+shellcheck %script_name
 
 %files
-%_bindir/winbind-dnsupdate
-%_unitdir/winbind-dnsupdate/winbind-dnsupdate.timer
-%_unitdir/winbind-dnsupdate/winbind-dnsupdate.service
-%_sysconfdir/bash_completion.d/winbind-dnsupdate-completions
+%_bindir/%script_name
+%_unitdir/%script_name/%script_name.timer
+%_unitdir/%script_name/%script_name.service
+%_datadir/bash-completion/completions/%script_name
 
 
 %changelog
