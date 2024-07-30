@@ -36,6 +36,7 @@ install -Dm 644 %script_name-completions \
      %buildroot%_datadir/bash-completion/completions/%script_name
 install -Dm 644 %script_name.timer %buildroot%_unitdir/%script_name.timer
 install -Dm 644 %script_name.service %buildroot%_unitdir/%script_name.service
+install -Dm 644 %script_name.sysconfig %buildroot%_sysconfdir/sysconfig/%script_name
 
 %check
 shellcheck %script_name
@@ -45,6 +46,7 @@ shellcheck %script_name
 %_unitdir/%script_name.timer
 %_unitdir/%script_name.service
 %_datadir/bash-completion/completions/%script_name
+%_sysconfdir/sysconfig/%script_name
 
 %changelog
 * Mon Jul 29 2024 Evgenii Sozonov  <arzdez@altlinux.org> 0.1-alt1
