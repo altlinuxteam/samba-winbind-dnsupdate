@@ -23,7 +23,6 @@ Requires: krb5-kinit
 Requires: net-tools
 Requires: bind-utils
 
-
 %description
 A program that implements dynamic update of addresses
 on a DNS server when used as a winbind backend
@@ -40,7 +39,6 @@ sed -i 's/^VERSION=.*/VERSION=%version/' %script_name
 install -Dm 755 %script_name %buildroot/%_bindir/%script_name
 install -Dm 644 %script_name-completions \
      %buildroot%_datadir/bash-completion/completions/%script_name
-
 install -Dm 644 %script_name.timer %buildroot%_unitdir/%script_name/%script_name.timer
 install -Dm 644 %script_name.service %buildroot%_unitdir/%script_name/%script_name.service
 
@@ -52,7 +50,6 @@ shellcheck %script_name
 %_unitdir/%script_name/%script_name.timer
 %_unitdir/%script_name/%script_name.service
 %_datadir/bash-completion/completions/%script_name
-
 
 %changelog
 * Mon Jul 29 2024 Evgenii Sozonov  <arzdez@altlinux.org> 0.1-alt1
