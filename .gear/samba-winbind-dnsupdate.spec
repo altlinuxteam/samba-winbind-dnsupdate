@@ -5,6 +5,7 @@ Release: alt1
 Summary: Dynamic dns update for winbind backend
 License: GPLv3
 URL: https://github.com/Arzdez/samba-winbind-dnsupdate.git
+VCS: https://github.com/Arzdez/samba-winbind-dnsupdate.git
 
 BuildArch: noarch
 Group: System/Configuration/Networking
