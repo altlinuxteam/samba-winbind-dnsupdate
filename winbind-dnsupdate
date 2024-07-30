@@ -31,35 +31,34 @@
 ### disable /bin/shell-getopt error
 # shellcheck disable=SC1091
 
+set -euo pipefail
 
 # shellcheck source=/bin/shell-getopt
 . shell-getopt
 
-set -euo pipefail
-
 # Print info message
 show_usage() {
-    echo ""
-    echo "$PROG_NAME utility for update DNS records."
-    echo "IPv4 is updated by default."
-    echo ""
-    echo "Usage: $PROG_NAME [options]"
-    echo ""
-    echo "Options:"
-    echo "  -h, --help                    This message"
-    echo "  -v, --version                 Display version number"
-    echo "  -a, --all                     Enable update all records type (IPv4,IPv6,PTR)"
-    echo "  -6, --update-ipv6             Enable update IPv6 records"
-    echo "  -d, --daemon                  For send log to journalctl when programm run as systemd unit"
-    echo "  -t, --ttl [time]              Set TTL"
-    echo "  --allow-ipv4-ptr-update       Enable update IPv4 PTR records"
-    echo "  --allow-ipv6-ptr-update       Enable update IPv6 PTR records"
-    echo ""
-    exit 0;
+cat << EOF
+$PROG_NAME utility for update DNS records.
+IPv4 is updated by default.
+
+Usage: $PROG_NAME [options]
+
+Options:
+  -h, --help                    This message
+  -v, --version                 Display version number
+  -a, --all                     Enable update all records type (IPv4,IPv6,PTR)
+  -6, --update-ipv6             Enable update IPv6 records
+  -d, --daemon                  For send log to journalctl when programm run as systemd unit
+  -t, --ttl <time>              Set TTL
+  --allow-ipv4-ptr-update       Enable update IPv4 PTR records
+  --allow-ipv6-ptr-update       Enable update IPv6 PTR records
+
+EOF
+exit 0;
 }
 
-print_version()
-{
+print_version() {
     echo "$VERSION"
     exit 0;
 }
