@@ -47,12 +47,12 @@ Usage: $PROG_NAME [options]
 Options:
   -h, --help                    This message
   -v, --version                 Display version number
-  -a, --all                     Enable update all records type (IPv4,IPv6,PTR)
-  -6, --update-ipv6             Enable update IPv6 records
+  -a, --all                     Enable update all DNS records type (IPv4,IPv6,PTR)
+  -6, --update-ipv6             Enable update IPv6 DNS records
   -d, --daemon                  For send log to journalctl when programm run as systemd unit
   -t, --ttl <time>              Set TTL
-  --allow-ipv4-ptr-update       Enable update IPv4 PTR records
-  --allow-ipv6-ptr-update       Enable update IPv6 PTR records
+  --allow-ipv4-ptr-update       Enable update IPv4 (A) PTR DNS records
+  --allow-ipv6-ptr-update       Enable update IPv6 (AAAA) PTR DNS records
 
 EOF
 exit 0;
