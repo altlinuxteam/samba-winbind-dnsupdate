@@ -36,6 +36,7 @@ install -Dm 644 %script_name.bash-completion \
 install -Dm 644 %script_name.timer %buildroot%_unitdir/%script_name.timer
 install -Dm 644 %script_name.service %buildroot%_unitdir/%script_name.service
 install -Dm 644 %script_name.sysconfig %buildroot%_sysconfdir/sysconfig/%script_name
+install -Dm 644 %script_name.ini %buildroot%_sysconfdir/dconf/db/local.d/%script_name.ini
 
 %check
 shellcheck %script_name
@@ -46,8 +47,15 @@ shellcheck %script_name
 %_unitdir/%script_name.service
 %_datadir/bash-completion/completions/%script_name
 %_sysconfdir/sysconfig/%script_name
+%_sysconfdir/dconf/db/local.d/%script_name.ini
+
+%post
+dconf compile %_sysconfdir/dconf/db/local %_sysconfdir/dconf/db/local.d/
 
 %changelog
+* Fri Aug 2 2024 Evgenii Sozonov  <arzdez@altlinux.org> 0.1-alt2
+- Add getting parameters from dconf
+
 * Wed Jul 31 2024 Andrey Limachko <liannnix@altlinux.org> 0.1-alt2
 - Build for sisyphus.
 
