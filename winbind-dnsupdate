@@ -135,26 +135,26 @@ done
 
 log() {
     local log_message=
-    local log_loevel=
-    log_loevel="$1"
+    local log_level=
+    log_level="$1"
     log_message="$2"
-    if [ "$log_loevel" = "ERROR" ]; then
+    if [ "$log_level" = "ERROR" ]; then
         if [ $run_as_unit -eq 0 ]; then
-            echo "[$log_loevel]: $log_message" 1>&2
+            echo "[$log_level]: $log_message" 1>&2
         else  
-            echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p err
+            echo "[$log_level]: $log_message" | systemd-cat -t winbind-dnsupdate -p err
         fi
-    elif [ "$log_loevel" = "WARNING" ]; then
+    elif [ "$log_level" = "WARNING" ]; then
         if [ $run_as_unit -eq 0 ]; then
-            echo "[$log_loevel]: $log_message" 1>&2 
+            echo "[$log_level]: $log_message" 1>&2 
         else 
-            echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p warning
+            echo "[$log_level]: $log_message" | systemd-cat -t winbind-dnsupdate -p warning
         fi
-    elif [ "$log_loevel" = "INFO" ]; then
+    elif [ "$log_level" = "INFO" ]; then
         if [ $run_as_unit -eq 0 ]; then
-            echo "[$log_loevel]: $log_message" 1>&2 
+            echo "[$log_level]: $log_message" 1>&2 
         else
-            echo "[$log_loevel]: $log_message" | systemd-cat -t winbind-dnsupdate -p info
+            echo "[$log_level]: $log_message" | systemd-cat -t winbind-dnsupdate -p info
         fi
     fi
 }
