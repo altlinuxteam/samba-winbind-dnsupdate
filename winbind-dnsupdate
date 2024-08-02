@@ -51,6 +51,7 @@ Options:
   -6, --update-ipv6             Enable update IPv6 DNS records
   -d, --daemon                  For send log to journalctl when programm run as systemd unit
   -t, --ttl <time>              Set TTL
+  -c, --cmd                     Disable read parametrs from dconf
   --allow-ipv4-ptr-update       Enable update IPv4 (A) PTR DNS records
   --allow-ipv6-ptr-update       Enable update IPv6 (AAAA) PTR DNS records
 
@@ -74,6 +75,7 @@ OPTIONS_LIST="help,
               allow-ipv6-ptr-update,
               all,
               only,
+              cmd,
               ttl:"
 
 OPTIONS_SHORT_LIST="h,
@@ -81,6 +83,7 @@ OPTIONS_SHORT_LIST="h,
                     d,
                     6,
                     a,
+                    c,
                     t:"
 
 TEMP=$(getopt -n "$PROG_NAME" -o "$OPTIONS_SHORT_LIST" -l "$OPTIONS_LIST" -- "$@")
@@ -94,6 +97,8 @@ ipv6_ptr_update=0 # Enable update ipv6 ptr records
 ttl=3600
 ## if enable log will send to journald
 run_as_unit=0
+## if enable parameters will get from dconf
+dconf_enable=1
 # Temp krb cache vars
 TMP_KRB_CCACHE_NAME=
 
@@ -115,6 +120,9 @@ while :; do
             enable_update_ipv6=1
             ipv4_ptr_update=1
             ipv6_ptr_update=1
+            ;;
+        -c|--cmd)
+            dconf_enable=0
             ;;
         -t|--ttl) shift 
             ttl="$1"
