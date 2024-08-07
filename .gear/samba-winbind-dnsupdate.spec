@@ -36,16 +36,19 @@ install -Dm 644 %script_name.bash-completion \
 install -Dm 644 %script_name.timer %buildroot%_unitdir/%script_name.timer
 install -Dm 644 %script_name.service %buildroot%_unitdir/%script_name.service
 install -Dm 644 %script_name.sysconfig %buildroot%_sysconfdir/sysconfig/%script_name
+install -Dm 644 doc/winbind-dnsupdate.1 %buildroot/%_man1dir/winbind-dnsupdate.1
 
 %check
 shellcheck %script_name
 
 %files
+%doc README.md
 %_bindir/%script_name
 %_unitdir/%script_name.timer
 %_unitdir/%script_name.service
 %_datadir/bash-completion/completions/%script_name
 %_sysconfdir/sysconfig/%script_name
+%_man1dir/winbind-dnsupdate.1.*
 
 %changelog
 * Wed Jul 31 2024 Andrey Limachko <liannnix@altlinux.org> 0.1-alt2
