@@ -41,7 +41,6 @@
 * Установка конфигурационного файла
 
       # install -Dm 644 winbind-dnsupdate.sysconfig /etc/sysconfig/winbind-dnsupdate
-
 * После установки необходимо активировать и запустить таймер и сервис:
 
 	  # systemctl enable winbind-dnsupdate.timer
