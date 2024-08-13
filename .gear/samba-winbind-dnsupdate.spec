@@ -1,8 +1,8 @@
 %define script_name winbind-dnsupdate
 
 Name: samba-winbind-dnsupdate
-Version: 0.1
-Release: alt2
+Version: 0.2
+Release: alt1
 
 Summary: Dynamic dns update for winbind backend
 License: GPLv3
@@ -51,6 +51,10 @@ shellcheck %script_name
 %_man1dir/winbind-dnsupdate.1.*
 
 %changelog
+* Tue Aug 13 2024 Andrey Limachko <liannnix@altlinux.org> 0.2-alt1
+- Add man page (thx Olga Kamaeva)
+- Add README file (thx Olga Kamaeva)
+
 * Wed Jul 31 2024 Andrey Limachko <liannnix@altlinux.org> 0.1-alt2
 - Build for sisyphus.
 
