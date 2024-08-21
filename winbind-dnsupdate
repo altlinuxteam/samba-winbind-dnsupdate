@@ -795,11 +795,6 @@ destroy_credentials() {
     unset KRB5CCNAME
 }
 
-# TODO Доработать первичную регистрцию A записи.
-# TODO Добавить обработку параметров.
-# TODO Добавить обновление и регистрацию AAAA записей
-# TODO Сделать вывод ошибки из функций nsupdate_command
-
 main() {
     trap "error_end_message && destroy_credentials" ERR
 
