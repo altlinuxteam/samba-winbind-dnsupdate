@@ -846,16 +846,13 @@ main() {
         log_info "Retrieving host credentials successfully"
 
         if [ "$update_ipv4" -eq 1 ]; then
-            log_info "----------------------------------------------------------"
             log_info "Update IPv4"
             update_ipv4 "$fqdn_name" "$ttl" "$ipv4_ptr_update" 
         fi
 
         if [ "$update_ipv6" -eq 1 ]; then
-            log_info "----------------------------------------------------------"
             log_info "Update IPv6"
             update_ipv6 "$fqdn_name" "$ttl" "$ipv6_ptr_update"
-            log_info "----------------------------------------------------------"
         fi
 
     else
