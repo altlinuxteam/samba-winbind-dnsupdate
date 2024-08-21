@@ -334,6 +334,7 @@ validate_ipv6(){
 get_ip_from_hostname() {
     local hostname="$1"
     local address_family="$2"
+    local dns_server="$3"
     local ret=1
     local record_type=
     local out=
@@ -347,7 +348,7 @@ get_ip_from_hostname() {
     fi
 
     if validate_hostname "$hostname"; then
-        if out="$(host -t "$record_type" "$hostname")"; then
+        if out="$(dig -t "$record_type" "$hostname" @"$dns_server" +short)"; then
             if ip="$(awk -F' ' '{print $NF}' 2>&1 <<< "$out")"; then
                 if [ "$record_type" = "A" ]; then
                     if validate_ipv4 "$ip"; then
@@ -410,7 +411,7 @@ get_connection_iface_to_ldap() {
     # Get actual dc connection ip
     log_info "Trying to get the name and $address_family address of a domain controller"
     if dc_hostname="$(get_dc_hostname)"; then
-        if ! dc_ip="$(get_ip_from_hostname "$dc_hostname" "$address_family")"; then
+        if ! dc_ip="$(get_ip_from_hostname "$dc_hostname" "$address_family" "$dc_hostname" )"; then
             log_warning "Can not resolve domain controller address for $dc_hostname"
             return $ret
         else
@@ -445,7 +446,9 @@ get_old_addr() {
     local address_family="$2"
     local ret=1
     local old_ip_addr=
-        if old_ip_addr="$(get_ip_from_hostname "$hostname" "$address_family")"; then
+    local dc_hostname=
+    dc_hostname="$(get_dc_hostname)"
+        if old_ip_addr="$(get_ip_from_hostname "$hostname" "$address_family" "$dc_hostname")"; then
             echo -n "$old_ip_addr" && ret=0
         else
             log_error "Can't get old IP addres."
