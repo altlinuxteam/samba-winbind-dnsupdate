@@ -453,20 +453,6 @@ get_old_addr() {
     return $ret
 }
 
-get_old_ptr_record() {
-    local ip_addr="$1"
-    local ret=0
-    local old_ptr_record=
-
-    old_ptr_record="$(host -t a "$1" | awk '{print $1}')" || ret=1
-    if [ $ret -eq 1 ]; then
-        log_error "Can't get old IPv4 PTR addres."
-        return 1
-    else
-        echo "$old_ptr_record"
-    fi
-}
-
 get_iface_ipv4_addr() {
     local iface="$1"
     local ipv4_addr=
