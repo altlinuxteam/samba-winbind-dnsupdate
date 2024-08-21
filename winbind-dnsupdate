@@ -448,7 +448,7 @@ get_old_addr() {
         if old_ip_addr="$(get_ip_from_hostname "$hostname" "$address_family")"; then
             echo -n "$old_ip_addr" && ret=0
         else
-            log_error "Can't get old IPv4 addres."
+            log_error "Can't get old IP addres."
         fi
     return $ret
 }
