@@ -716,7 +716,12 @@ update_ipv4(){
         log_info "IPv4 address in DNS server: $old_ipv4_addr"
         if [ "$ipv4_addr" = "$old_ipv4_addr" ]; then
             log_info "The IPv4 address of interface $connect_iface has not been changed."
-            log_info "The update was skipped"
+            log_info "The update IPv4 was skipped"
+            if [ "$ptr_update" -eq 1 ] && [ "$exist_ptr_record" -eq 1 ]; then
+                log_info "The PTR record does not exist but IPv4 not changed and PTR record update enable"
+                log_info "Start IPv4 PTR record registration."
+                call_update_ptr_record  "$ipv4_addr" "$fqdn_name" "$ttl" "$address_family"
+            fi
         else
             # Update addr if hi was changed
             log_info "The IPv4 address of interface $connect_iface has been changed."
@@ -776,7 +781,12 @@ update_ipv6(){
         log_info "IPv6 address in DNS server: $old_ipv6_addr"
         if [ "$ipv6_addr" = "$old_ipv6_addr" ]; then
             log_info "The IPv6 address of interface $connect_iface has not been changed."
-            log_info "The update was skipped"
+            log_info "The update IPv6 was skipped"
+            if [ "$ptr_update" -eq 1 ] && [ "$exist_ptr_record" -eq 1 ]; then
+                log_info "The PTR record does not exist but IPv6 not changed and PTR record update enable"
+                log_info "Start IPv6 PTR record registration"
+                call_update_ptr_record  "$ipv6_addr" "$fqdn_name" "$ttl" "$address_family"
+            fi
         else
             # Update addr if hi was changed
             log_info "The IPv6 address of interface $connect_iface has been changed."
