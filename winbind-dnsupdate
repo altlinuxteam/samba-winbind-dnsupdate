@@ -706,7 +706,7 @@ update_ipv4(){
         # Check if ptr update is enabled
         if [ "$ptr_update" -eq 1 ]; then
             log_info "Start IPv4 PTR record registration."
-            call_update_ptr_record  "$ipv4_addr" "$fqdn_name" "$ttl"
+            call_update_ptr_record  "$ipv4_addr" "$fqdn_name" "$ttl" "$address_family"
         fi
     else
         # Obtaining an old IP address to check the need for an update
