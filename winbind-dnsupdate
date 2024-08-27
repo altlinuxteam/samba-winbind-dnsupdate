@@ -72,6 +72,7 @@ OPTIONS_LIST="help,
               update-ipv6,
               allow-ipv4-ptr-update,
               allow-ipv6-ptr-update,
+              disable-dconf,
               all,
               only,
               ttl:"
@@ -86,6 +87,7 @@ OPTIONS_SHORT_LIST="h,
 TEMP=$(getopt -n "$PROG_NAME" -o "$OPTIONS_SHORT_LIST" -l "$OPTIONS_LIST" -- "$@")
 eval set -- "$TEMP"
 
+dconf_enable=1
 ## DNS update options
 enable_update_ipv6=0 # Enable update ipv6
 enable_update_ipv4=1 # Enable update ipv4
@@ -125,6 +127,9 @@ while :; do
         --allow-ipv6-ptr-update)
             ipv6_ptr_update=1 
             ;;
+        --disable-dconf)
+            dconf_enable=0
+            ;;
         --) shift; break
             ;;
         *) fatal "Unrecognized option: $1"
@@ -132,6 +137,14 @@ while :; do
     esac
     shift
 done
+
+if [ $dconf_enable -eq 1 ]; then
+    enable_update_ipv4="$(dconf read /Software/BaseALT/Policies/SambaWinbind/enable_update_ipv4)"
+    enable_update_ipv6="$(dconf read /Software/BaseALT/Policies/SambaWinbind/enable_update_ipv6)"
+    ipv4_ptr_update="$(dconf read /Software/BaseALT/Policies/SambaWinbind/ipv4_ptr_update)"
+    ipv6_ptr_update="$(dconf read /Software/BaseALT/Policies/SambaWinbind/ipv6_ptr_update)"
+    ttl="$(dconf read /Software/BaseALT/Policies/SambaWinbind/ttl)"
+fi
 
 log() {
     local log_message=
