@@ -251,10 +251,11 @@ check_dns_servers_reacheble() {
 
 check_exist_ptr_record() {
     local ip_addr="$1"
+    local dns_server="$2"
     local ptr_record_exist=0
     local ret=0
     log_info "Checking the existence of a PTR record"
-    out="$(host -t ptr "$ip_addr" | grep -E -o "NXDOMAIN")"
+    out="$(host -t ptr "$ip_addr" "$dns_server" | grep -E -o "NXDOMAIN")"
     if [ "$out" = "NXDOMAIN" ]; then
         ptr_record_exist=1
         log_info "PTR record not exists."
@@ -267,6 +268,7 @@ check_exist_ptr_record() {
 check_exist_forward_lookup_record() {
     local host_name="$1" 
     local address_family="$2"
+    local dns_server="$3"
     local a_record_exist=0
     local ret=0
     local record_type=
@@ -280,7 +282,7 @@ check_exist_forward_lookup_record() {
     fi
 
     log_info "Checking the existence of $record_type record"
-    out="$(host -t "$record_type" "$host_name" | grep -E -o "NXDOMAIN|has no A record|has no AAAA record")" || ret=1
+    out="$(host -t "$record_type" "$host_name" "$dns_server" | grep -E -o "NXDOMAIN|has no A record|has no AAAA record")" || ret=1
     if [ "$out" = "NXDOMAIN" ] && [ $ret -eq 1 ]; then
         a_record_exist=1
         log_info "$address_family record not exists."
@@ -674,6 +676,7 @@ update_ipv4(){
     local fqdn_name="$1"
     local ttl="$2"
     local ptr_update="$3"
+    local dc_hostname="$4"
     local exist_a_record=0
     local exist_ptr_record=0
     local first_registration_flag=0
@@ -687,10 +690,10 @@ update_ipv4(){
     connect_iface="$(get_connection_iface_to_ldap "$address_family")" 
     ipv4_addr="$(get_iface_ipv4_addr "$connect_iface")"
 
-    check_exist_forward_lookup_record "$fqdn_name" "$address_family" || exist_a_record=1
+    check_exist_forward_lookup_record "$fqdn_name" "$address_family" "$dc_hostname" || exist_a_record=1
 
     if [ "$ptr_update" -eq 1 ]; then
-        check_exist_ptr_record "$ipv4_addr" || exist_ptr_record=1
+        check_exist_ptr_record "$ipv4_addr" "$dc_hostname" || exist_ptr_record=1
         # Message to recommend deleting the old PTR record if there is no old A record
         if [ $exist_ptr_record -eq 0 ] && [ $exist_a_record -eq 1 ]; then
             log_warning "The IPv4 PTR record exists, but the A record is missing and host IP was changed. To avoid duplicate entries,\
@@ -742,6 +745,7 @@ update_ipv6(){
     local fqdn_name="$1"
     local ttl="$2"
     local ptr_update="$3"
+    local dc_hostname="$4"
     local exist_aaaa_record=0
     local exist_ptr_record=0
     local first_registration_flag=0
@@ -754,9 +758,9 @@ update_ipv6(){
     connect_iface="$(get_connection_iface_to_ldap "$address_family")"
     ipv6_addr="$(get_iface_ipv6_addr "$connect_iface")"
 
-    check_exist_forward_lookup_record "$fqdn_name"  "$address_family" || exist_aaaa_record=1
+    check_exist_forward_lookup_record "$fqdn_name"  "$address_family" "$dc_hostname" || exist_aaaa_record=1
     if [ "$ptr_update" -eq 1 ]; then
-        check_exist_ptr_record "$ipv6_addr" || exist_ptr_record=1
+        check_exist_ptr_record "$ipv6_addr" "$dc_hostname" || exist_ptr_record=1
 
         if [ $exist_ptr_record -eq 0 ] && [ $exist_aaaa_record -eq 1 ]; then
             log_warning "The IPv6 PTR record exists, but the AAAA record is missing and host IP was changed. To avoid duplicate entries,\
@@ -834,8 +838,10 @@ main() {
     local fqdn_name=
     local upper_hostname=
     local domain_realm=
+    local dc_hostname=
 
     # Init vars
+    dc_hostname="$(get_dc_hostname)"
     domain_realm="$(get_domain_realm)"
     upper_hostname="$(get_short_hostname)"
     fqdn_name="$(get_fqdn_hostname)"
@@ -854,12 +860,12 @@ main() {
 
         if [ "$update_ipv4" -eq 1 ]; then
             log_info "Update IPv4"
-            update_ipv4 "$fqdn_name" "$ttl" "$ipv4_ptr_update" 
+            update_ipv4 "$fqdn_name" "$ttl" "$ipv4_ptr_update" "$dc_hostname"
         fi
 
         if [ "$update_ipv6" -eq 1 ]; then
             log_info "Update IPv6"
-            update_ipv6 "$fqdn_name" "$ttl" "$ipv6_ptr_update"
+            update_ipv6 "$fqdn_name" "$ttl" "$ipv6_ptr_update" "$dc_hostname"
         fi
 
     else
