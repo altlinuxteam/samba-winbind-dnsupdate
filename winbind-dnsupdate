@@ -491,17 +491,12 @@ get_connection_iface_to_ldap() {
 
     # Get actual dc connection ip
     log_info "Trying to get the name and $address_family address of a domain controller"
-    if dc_hostname="$(get_dc_hostname)"; then
         if ! dc_ip="$(get_ip_from_hostname "$dc_hostname" "$address_family" "$dc_hostname" )"; then
             log_warning "Can not resolve domain controller address for $dc_hostname"
             return $ret
         else
             log_info "Successful. DC info:"
         fi
-    else
-        log_warning "Can not get domain controller hostname"
-        return $ret
-    fi
 
     # Find iface
     log_info "Domain controller name: $dc_hostname"
