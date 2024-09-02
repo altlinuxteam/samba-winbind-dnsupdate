@@ -907,7 +907,6 @@ main() {
     local site_name=
 
     # Init vars
-    dc_hostname="$(get_dc_hostname)"
     domain_realm="$(get_domain_realm)"
     upper_hostname="$(get_short_hostname)"
     fqdn_name="$(get_fqdn_hostname)"
@@ -917,8 +916,8 @@ main() {
     # Check
     check_winbind_status || ret=1
     check_net_is_install || ret=1
-    check_dns_servers_reacheble "$fqdn_name" || ret=1
-
+    # Get available dns server
+    dc_hostname="$(get_reacheble_dns_server "$domain_realm" "$site_name" "$fqdn_name" )" || ret=1
     if [ $ret -eq 0 ]; then
         # Host kinit
         set_cache_name
