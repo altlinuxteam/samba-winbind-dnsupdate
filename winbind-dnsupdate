@@ -320,6 +320,15 @@ get_short_hostname() {
     echo "$upper_hostname"
 }
 
+get_site_name() {
+    local domain_realm="$1"
+    local site_name=
+
+    site_name="$(wbinfo --dsgetdcname="$domain_realm" | tail -n1)"
+
+    echo "$site_name"
+}
+
 validate_hostname() {
     local hostname="$1"
     local validate_regex=
@@ -840,13 +849,16 @@ main() {
     local upper_hostname=
     local domain_realm=
     local dc_hostname=
+    local site_name=
 
     # Init vars
     dc_hostname="$(get_dc_hostname)"
     domain_realm="$(get_domain_realm)"
     upper_hostname="$(get_short_hostname)"
     fqdn_name="$(get_fqdn_hostname)"
+    site_name="$(get_site_name "$domain_realm")"
     log_info "Hostname: $fqdn_name"
+    log_info "Site: $site_name"
     # Check
     check_winbind_status || ret=1
     check_net_is_install || ret=1
