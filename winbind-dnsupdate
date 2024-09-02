@@ -355,6 +355,36 @@ get_dc_list() {
     fi
 }
 
+get_reacheble_dns_server() {
+    local domain_realm="$1"
+    local site_name="$2"
+    local fqdn_name="$3"
+    local ret=0
+    local dns_reacheble=
+    local dc_hostname=
+
+    log_info "Trying to get a list of domain controllers"
+    dc_list="$(get_dc_list "$domain_realm" "$site_name")"  || ret=1
+    log_info "Trying to find an available DNS server"
+    if [ $ret -eq 0 ]; then
+        for dc_name in $dc_list; do
+            dns_reacheble=0
+            check_dns_servers_reacheble "$fqdn_name" "$dc_name" || dns_reacheble=1
+            if [ $dns_reacheble -eq 0 ]; then
+                dc_hostname="$(sed 's/.$//' <<< "$dc_name")"
+                echo "$dc_hostname"
+                break
+            fi
+        done
+
+        if [ $dns_reacheble -eq 1 ]; then
+            log_error "Unable to find an available DNS server for the $site_name"
+            ret=1
+        fi
+    fi
+    return $ret
+}
+
 validate_hostname() {
     local hostname="$1"
     local validate_regex=
