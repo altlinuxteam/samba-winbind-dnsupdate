@@ -324,11 +324,16 @@ get_short_hostname() {
 
 get_site_name() {
     local domain_realm="$1"
+    local ret=0
     local site_name=
 
-    site_name="$(wbinfo --dsgetdcname="$domain_realm" | tail -n1)"
-
-    echo "$site_name"
+    site_name="$(wbinfo --dsgetdcname="$domain_realm" | tail -n1)" || ret=1
+    if [ $ret -eq 1 ] || grep -q "Could not find dc for" <<< "$site_name"; then
+        log_error "Can't get site name"
+    else
+        echo "$site_name"
+    fi
+    return $ret
 }
 
 get_dc_list() {
@@ -905,13 +910,14 @@ main() {
     domain_realm="$(get_domain_realm)"
     upper_hostname="$(get_short_hostname)"
     fqdn_name="$(get_fqdn_hostname)"
-    site_name="$(get_site_name "$domain_realm")"
     log_info "Hostname: $fqdn_name"
-    log_info "Site: $site_name"
     # Check
     check_winbind_status || ret=1
     check_net_is_install || ret=1
     # Get available dns server
+    log_info "Trying to get the site name"
+    site_name="$(get_site_name "$domain_realm")"
+    log_info "Site: $site_name"
     dc_hostname="$(get_reacheble_dns_server "$domain_realm" "$site_name" "$fqdn_name" )" || ret=1
     if [ $ret -eq 0 ]; then
         # Host kinit
