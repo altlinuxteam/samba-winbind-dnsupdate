@@ -483,7 +483,7 @@ get_dc_hostname() {
 
 get_connection_iface_to_ldap() {
     local address_family="$1"
-    local dc_hostname=
+    local dc_hostname="$2"
     local dc_ip=
     local connect_iface=
     local out=
@@ -525,10 +525,9 @@ get_connection_iface_to_ldap() {
 get_old_addr() {
     local hostname="$1"
     local address_family="$2"
+    local dc_hostname="$3"
     local ret=1
     local old_ip_addr=
-    local dc_hostname=
-    dc_hostname="$(get_dc_hostname)"
         if old_ip_addr="$(get_ip_from_hostname "$hostname" "$address_family" "$dc_hostname")"; then
             echo -n "$old_ip_addr" && ret=0
         else
@@ -753,7 +752,7 @@ update_ipv4(){
     local connect_iface=
 
     # Get the interface through which the connection is established with ldаp
-    connect_iface="$(get_connection_iface_to_ldap "$address_family")" 
+    connect_iface="$(get_connection_iface_to_ldap "$address_family" "$dc_hostname")" 
     ipv4_addr="$(get_iface_ipv4_addr "$connect_iface")"
 
     check_exist_forward_lookup_record "$fqdn_name" "$address_family" "$dc_hostname" || exist_a_record=1
@@ -779,7 +778,7 @@ update_ipv4(){
         fi
     else
         # Obtaining an old IP address to check the need for an update
-        old_ipv4_addr="$(get_old_addr "$fqdn_name" "$address_family")"
+        old_ipv4_addr="$(get_old_addr "$fqdn_name" "$address_family" "$dc_hostname")"
         log_info "Checking whether the IPv4 records needs to be updated"
         log_info "Current IPv4 address: $ipv4_addr"
         log_info "IPv4 address in DNS server: $old_ipv4_addr"
@@ -821,7 +820,7 @@ update_ipv6(){
     local old_ptr_ipv6_addr=
     local connect_iface=
 
-    connect_iface="$(get_connection_iface_to_ldap "$address_family")"
+    connect_iface="$(get_connection_iface_to_ldap "$address_family" "$dc_hostname")"
     ipv6_addr="$(get_iface_ipv6_addr "$connect_iface")"
 
     check_exist_forward_lookup_record "$fqdn_name"  "$address_family" "$dc_hostname" || exist_aaaa_record=1
@@ -845,7 +844,7 @@ update_ipv6(){
             call_update_ptr_record  "$ipv6_addr" "$fqdn_name" "$ttl" "$address_family"
         fi
     else
-        old_ipv6_addr="$(get_old_addr "$fqdn_name" "$address_family")"
+        old_ipv6_addr="$(get_old_addr "$fqdn_name" "$address_family" "$dc_hostname")"
         log_info "Checking whether the IPv6 records needs to be updated"
         log_info "Current IPv6 address: $ipv6_addr"
         log_info "IPv6 address in DNS server: $old_ipv6_addr"
