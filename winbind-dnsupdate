@@ -233,21 +233,23 @@ host_kinit() {
 
 check_dns_servers_reacheble() {
     local host_name="$1"
+    local dc_name="$2"
     local ret=0
-    log_info "Checking the availability of DNS servers"
-    out="$(host -t a "$host_name" 2>&1)" || ret=1
+    log_info "Checking the availability of DNS server on $dc_name"
+    out="$(dig -t a "$host_name" @"$dc_name" +short 2>&1)" || ret=1
     if [ $ret -eq 0 ] || grep -q "NXDOMAIN" <<< "$out"; then
-        log_info "DNS servers available"
-        return 0
+        log_info "DNS server on $dc_name available"
+        ret=0
     elif grep -q "no servers could be reached" <<< "$out"; then
-        log_error "DNS server not responding"
-        log_error "$out"
-        return 1
+        log_error "DNS server on $dc_name not responding"
+        ret=1
     else
         log_error "DNS error"
-        log_error "$out"
-        return 1
+        log_error "DNS server on $dc_name not responding"
+        ret=1
     fi
+
+    return $ret
 }
 
 check_exist_ptr_record() {
