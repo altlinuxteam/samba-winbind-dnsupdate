@@ -1,7 +1,7 @@
 %define script_name winbind-dnsupdate
 
 Name: samba-winbind-dnsupdate
-Version: 0.3
+Version: 0.4
 Release: alt1
 
 Summary: Dynamic dns update for winbind backend
@@ -56,6 +56,11 @@ shellcheck %script_name
 dconf compile %_sysconfdir/dconf/db/policy %_sysconfdir/dconf/db/policy.d/
 
 %changelog
+* Tue Sep 03 2024 Andrey Limachko <liannnix@altlinux.org> 0.4-alt1
+- Add getting parammetrs from dconf (thx Evgenii Sozonov)
+- Fix update PTR records (thx Evgenii Sozonov)
+- Change the method for obtaining an available DNS server (thx Evgenii Sozonov)
+
 * Fri Aug 23 2024 Andrey Limachko <liannnix@altlinux.org> 0.3-alt1
 - Add explicit selection of DNS server for update. Change getting
   host addres method (thx Evgenii Sozonov)
