@@ -331,6 +331,30 @@ get_site_name() {
     echo "$site_name"
 }
 
+get_dc_list() {
+    local domain_realm="$1"
+    local site_name="$2"
+    local ret=0
+    local dc_list=
+    local out=
+    out="$(host -t SRV _ldap._tcp."$site_name"._sites.dc._msdcs."$domain_realm")" || ret=1
+
+    if [ $ret -eq 0 ] || grep -q "NXDOMAIN" <<< "$out"; then
+        log_info "Success"
+        dc_list="$(grep "has SRV record" <<< "$out" | awk '{print $NF}')"
+        echo "$dc_list"
+        return 0
+    elif grep -q "no servers could be reached" <<< "$out"; then
+        log_error "Unable to connect to any DNS server"
+        log_error "Cant find any dc in site $site_name"
+        return 1
+    else
+        log_error "Unable to connect to any DNS server"
+        log_error "Cant find any dc in site $site_name"
+        return 1
+    fi
+}
+
 validate_hostname() {
     local hostname="$1"
     local validate_regex=
