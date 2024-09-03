@@ -235,17 +235,17 @@ check_dns_servers_reacheble() {
     local host_name="$1"
     local dc_name="$2"
     local ret=0
-    log_info "Checking the availability of DNS server on $dc_name"
+    log_info "Checking the availability of DNS server on $dc_name."
     out="$(dig -t a "$host_name" @"$dc_name" +short 2>&1)" || ret=1
     if [ $ret -eq 0 ] || grep -q "NXDOMAIN" <<< "$out"; then
-        log_info "DNS server on $dc_name available"
+        log_info "DNS server on $dc_name available."
         ret=0
     elif grep -q "no servers could be reached" <<< "$out"; then
-        log_error "DNS server on $dc_name not responding"
+        log_error "DNS server on $dc_name not responding."
         ret=1
     else
-        log_error "DNS error"
-        log_error "DNS server on $dc_name not responding"
+        log_error "DNS error."
+        log_error "DNS server on $dc_name not responding."
         ret=1
     fi
 
@@ -257,7 +257,7 @@ check_exist_ptr_record() {
     local dns_server="$2"
     local ptr_record_exist=0
     local ret=0
-    log_info "Checking the existence of a PTR record"
+    log_info "Checking the existence of a PTR record."
     out="$(host -t ptr "$ip_addr" "$dns_server" | grep -E -o "NXDOMAIN")"
     if [ "$out" = "NXDOMAIN" ]; then
         ptr_record_exist=1
@@ -281,10 +281,10 @@ check_exist_forward_lookup_record() {
     elif [ "$address_family" = "IPv6" ]; then
         record_type="AAAA"
     else
-        log_warning "Unknown address family"
+        log_warning "Unknown address family."
     fi
 
-    log_info "Checking the existence of $record_type record"
+    log_info "Checking the existence of $record_type record."
     out="$(host -t "$record_type" "$host_name" "$dns_server" | grep -E -o "NXDOMAIN|has no A record|has no AAAA record")" || ret=1
     if [ "$out" = "NXDOMAIN" ] && [ $ret -eq 1 ]; then
         a_record_exist=1
@@ -329,7 +329,7 @@ get_site_name() {
 
     site_name="$(wbinfo --dsgetdcname="$domain_realm" | tail -n1)" || ret=1
     if [ $ret -eq 1 ] || grep -q "Could not find dc for" <<< "$site_name"; then
-        log_error "Can't get site name"
+        log_error "Can't get site name."
     else
         echo "$site_name"
     fi
@@ -345,17 +345,17 @@ get_dc_list() {
     out="$(host -t SRV _ldap._tcp."$site_name"._sites.dc._msdcs."$domain_realm")" || ret=1
 
     if [ $ret -eq 0 ] || grep -q "NXDOMAIN" <<< "$out"; then
-        log_info "Success"
+        log_info "Success."
         dc_list="$(grep "has SRV record" <<< "$out" | awk '{print $NF}')"
         echo "$dc_list"
         return 0
     elif grep -q "no servers could be reached" <<< "$out"; then
-        log_error "Unable to connect to any DNS server"
-        log_error "Cant find any dc in site $site_name"
+        log_error "Unable to connect to any DNS server."
+        log_error "Cant find any dc in site $site_name."
         return 1
     else
-        log_error "Unable to connect to any DNS server"
-        log_error "Cant find any dc in site $site_name"
+        log_error "Unable to connect to any DNS server."
+        log_error "Cant find any dc in site $site_name."
         return 1
     fi
 }
@@ -368,9 +368,9 @@ get_reacheble_dns_server() {
     local dns_reacheble=
     local dc_hostname=
 
-    log_info "Trying to get a list of domain controllers"
+    log_info "Trying to get a list of domain controllers."
     dc_list="$(get_dc_list "$domain_realm" "$site_name")"  || ret=1
-    log_info "Trying to find an available DNS server"
+    log_info "Trying to find an available DNS server."
     if [ $ret -eq 0 ]; then
         for dc_name in $dc_list; do
             dns_reacheble=0
@@ -383,7 +383,7 @@ get_reacheble_dns_server() {
         done
 
         if [ $dns_reacheble -eq 1 ]; then
-            log_error "Unable to find an available DNS server for the $site_name"
+            log_error "Unable to find an available DNS server for the $site_name."
             ret=1
         fi
     fi
@@ -430,7 +430,7 @@ get_ip_from_hostname() {
     elif [ "$address_family" = "IPv6" ]; then
         record_type="AAAA"
     else
-        log_warning "Unknown address family"
+        log_warning "Unknown address family."
     fi
 
     if validate_hostname "$hostname"; then
@@ -440,26 +440,26 @@ get_ip_from_hostname() {
                     if validate_ipv4 "$ip"; then
                         echo -n "$ip" && ret=0
                     else
-                        log_warning "Invalid IPv4 address: $ip"
+                        log_warning "Invalid IPv4 address: $ip."
                     fi
                 elif [ "$record_type" = "AAAA" ]; then
                     if validate_ipv6 "$ip"; then
                         echo -n "$ip" && ret=0
                     else
-                        log_warning "Invalid IPv6 address: $ip"
+                        log_warning "Invalid IPv6 address: $ip."
                         log_warning "$out"
                     fi
                 fi
             else
-                log_warning "Can not parse IP address"
-                log_warning "AWK errror: $ip"
+                log_warning "Can not parse IP address."
+                log_warning "AWK errror: $ip."
             fi
         else
-            log_warning "Can not resolve hostname: $hostname"
-            log_warning "DNS error: $out"
+            log_warning "Can not resolve hostname: $hostname."
+            log_warning "DNS error: $out."
         fi
     else
-        log_warning "Invalid hostname: $hostname"
+        log_warning "Invalid hostname: $hostname."
     fi
     return $ret
 }
@@ -473,11 +473,11 @@ get_dc_hostname() {
             if validate_hostname "$dc"; then
                 echo -n "$dc" && ret=0
             else
-                log_warning "Domain controller hostname invalid: $dc"
+                log_warning "Domain controller hostname invalid: $dc."
             fi
         else
-            log_warning "Can not parse domain controller hostname"
-            log_warning "AWK errror: $dc"
+            log_warning "Can not parse domain controller hostname."
+            log_warning "AWK errror: $dc."
         fi
     else
         log_warning "Wbinfo error:"
@@ -495,29 +495,29 @@ get_connection_iface_to_ldap() {
     local ret=1
 
     # Get actual dc connection ip
-    log_info "Trying to get $address_family address of a domain controller"
+    log_info "Trying to get $address_family address of a domain controller."
         if ! dc_ip="$(get_ip_from_hostname "$dc_hostname" "$address_family" "$dc_hostname" )"; then
-            log_warning "Can not resolve domain controller address for $dc_hostname"
+            log_warning "Can not resolve domain controller address for $dc_hostname."
             return $ret
         else
             log_info "Successful. DC info:"
         fi
 
     # Find iface
-    log_info "Domain controller name: $dc_hostname"
-    log_info "Domain controller $address_family: $dc_ip"
-    log_info "Trying parse connection interface name"
+    log_info "Domain controller name: $dc_hostname."
+    log_info "Domain controller $address_family: $dc_ip."
+    log_info "Trying parse connection interface name."
     
     if out="$(ip route get dport 389 "$dc_ip")"; then
         if connect_iface="$(awk -F'dev ' 'NR==1 {print $2}' <<< "$out" | awk '{print $1}' 2>&1)"; then
-            log_info "Successful. Intraface name: $connect_iface"
+            log_info "Successful. Intraface name: $connect_iface."
             echo -n "$connect_iface" && ret=0
         else
-            log_warning "Can not parse connection interface"
-            log_warning "AWK errror: $connect_iface"
+            log_warning "Can not parse connection interface."
+            log_warning "AWK errror: $connect_iface."
         fi
     else
-        log_warning "Ip route error: $out"
+        log_warning "Ip route error: $out."
     fi
     return $ret
 }
@@ -546,14 +546,14 @@ get_iface_ipv4_addr() {
             if validate_ipv4 "$ipv4_addr"; then
                 echo -n "$ipv4_addr" && ret=0
             else
-                log_warning "Invalid IPv4 address: $ip"
+                log_warning "Invalid IPv4 address: $ip."
             fi
         else
             log_warning "Can't get current IPv4 addres."
-            log_warning "Parse IPv4 address error: $ipv4_addr "
+            log_warning "Parse IPv4 address error: $ipv4_addr."
         fi
     else
-        log_warning "Error getting interface information: $iface_info"
+        log_warning "Error getting interface information: $iface_info."
     fi
 
     return $ret
@@ -573,10 +573,10 @@ get_iface_ipv6_addr(){
             fi
         else
             log_warning "Can't get current IPv6 addres."
-            log_warning "Parse IPv6 address error: $ipv4_addr "
+            log_warning "Parse IPv6 address error: $ipv4_addr."
         fi
     else
-        log_warning "Error getting interface information: $iface_info"
+        log_warning "Error getting interface information: $iface_info."
     fi
 
     return $ret
@@ -678,7 +678,7 @@ call_update_ptr_record() {
     elif [ "$address_family" = "IPv6" ]; then
         new_ptr_addr="$(generate_ipv6_ptr_ip "$ip_addr")"
     else
-        log_warning "Unknown address family"
+        log_warning "Unknown address family."
     fi
 
     if [ $# -gt 4 ]; then
@@ -718,7 +718,7 @@ call_update_forward_lookup_record() {
     elif [ "$address_family" = "IPv6" ]; then
         record_type="AAAA"
     else
-        log_warning "Unknown address family"
+        log_warning "Unknown address family."
     fi
     if [ "$first_registration" -eq 1 ]; then
         out="$(first_forward_lookup_record_registration "$ipv4_addr" "$fqdn_name" "$ttl" "$record_type")" || res=1
@@ -779,14 +779,14 @@ update_ipv4(){
     else
         # Obtaining an old IP address to check the need for an update
         old_ipv4_addr="$(get_old_addr "$fqdn_name" "$address_family" "$dc_hostname")"
-        log_info "Checking whether the IPv4 records needs to be updated"
-        log_info "Current IPv4 address: $ipv4_addr"
-        log_info "IPv4 address in DNS server: $old_ipv4_addr"
+        log_info "Checking whether the IPv4 records needs to be updated."
+        log_info "Current IPv4 address: $ipv4_addr."
+        log_info "IPv4 address in DNS server: $old_ipv4_addr."
         if [ "$ipv4_addr" = "$old_ipv4_addr" ]; then
             log_info "The IPv4 address of interface $connect_iface has not been changed."
-            log_info "The update IPv4 was skipped"
+            log_info "The update IPv4 was skipped."
             if [ "$ptr_update" -eq 1 ] && [ "$exist_ptr_record" -eq 1 ]; then
-                log_info "The PTR record does not exist but IPv4 not changed and PTR record update enable"
+                log_info "The PTR record does not exist but IPv4 not changed and PTR record update enable."
                 log_info "Start IPv4 PTR record registration."
                 call_update_ptr_record  "$ipv4_addr" "$fqdn_name" "$ttl" "$address_family"
             fi
@@ -803,7 +803,7 @@ update_ipv4(){
             fi
         fi
     fi
-    log_info "IPv4 update was successful"
+    log_info "IPv4 update was successful."
 }
 
 update_ipv6(){
@@ -845,15 +845,15 @@ update_ipv6(){
         fi
     else
         old_ipv6_addr="$(get_old_addr "$fqdn_name" "$address_family" "$dc_hostname")"
-        log_info "Checking whether the IPv6 records needs to be updated"
-        log_info "Current IPv6 address: $ipv6_addr"
-        log_info "IPv6 address in DNS server: $old_ipv6_addr"
+        log_info "Checking whether the IPv6 records needs to be updated."
+        log_info "Current IPv6 address: $ipv6_addr."
+        log_info "IPv6 address in DNS server: $old_ipv6_addr."
         if [ "$ipv6_addr" = "$old_ipv6_addr" ]; then
             log_info "The IPv6 address of interface $connect_iface has not been changed."
-            log_info "The update IPv6 was skipped"
+            log_info "The update IPv6 was skipped."
             if [ "$ptr_update" -eq 1 ] && [ "$exist_ptr_record" -eq 1 ]; then
-                log_info "The PTR record does not exist but IPv6 not changed and PTR record update enable"
-                log_info "Start IPv6 PTR record registration"
+                log_info "The PTR record does not exist but IPv6 not changed and PTR record update enable."
+                log_info "Start IPv6 PTR record registration."
                 call_update_ptr_record  "$ipv6_addr" "$fqdn_name" "$ttl" "$address_family"
             fi
         else
@@ -869,7 +869,7 @@ update_ipv6(){
             fi
         fi
     fi
-    log_info "IPv6 update was successful"
+    log_info "IPv6 update was successful."
 }
 
 # message if update was failed
@@ -910,29 +910,29 @@ main() {
     domain_realm="$(get_domain_realm)"
     upper_hostname="$(get_short_hostname)"
     fqdn_name="$(get_fqdn_hostname)"
-    log_info "Hostname: $fqdn_name"
+    log_info "Hostname: $fqdn_name."
     # Check
     check_winbind_status || ret=1
     check_net_is_install || ret=1
     # Get available dns server
-    log_info "Trying to get the site name"
+    log_info "Trying to get the site name."
     site_name="$(get_site_name "$domain_realm")"
-    log_info "Site: $site_name"
+    log_info "Site: $site_name."
     dc_hostname="$(get_reacheble_dns_server "$domain_realm" "$site_name" "$fqdn_name" )" || ret=1
     if [ $ret -eq 0 ]; then
         # Host kinit
         set_cache_name
-        log_info "Get host credentials"
+        log_info "Get host credentials."
         host_kinit "$upper_hostname" "$domain_realm"
-        log_info "Retrieving host credentials successfully"
+        log_info "Retrieving host credentials successfully."
 
         if [ "$update_ipv4" -eq 1 ]; then
-            log_info "Update IPv4"
+            log_info "Update IPv4."
             update_ipv4 "$fqdn_name" "$ttl" "$ipv4_ptr_update" "$dc_hostname"
         fi
 
         if [ "$update_ipv6" -eq 1 ]; then
-            log_info "Update IPv6"
+            log_info "Update IPv6."
             update_ipv6 "$fqdn_name" "$ttl" "$ipv6_ptr_update" "$dc_hostname"
         fi
 
