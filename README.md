@@ -87,6 +87,10 @@
        --allow-ipv6-ptr-update
               Включить обновление обратной DNS-записи IPv6 (AAAA) PTR.
 
+       --disable-dconf
+              Отключить считывание конфигурационных данных из Dсonf.
+
+
 Пример вывода:
 
 	[INFO]: Hostname: clw4-sis.domain.alt
