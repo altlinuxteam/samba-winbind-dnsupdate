@@ -336,6 +336,22 @@ get_site_name() {
     return $ret
 }
 
+get_site_list(){
+    local dc_name=
+    local config_context=
+    local site_list=
+    dc_name="$(get_dc_hostname)"
+    config_context="$(ldapsearch -N -Y GSSAPI -LLL -H ldap://"$dc_name" -b '' -s base 2>/dev/null |\
+                                                                                 grep -E "configurationNamingContext:" |\
+                                                                                 awk '{print $NF}')"
+    site_list="$(ldapsearch -N -Y GSSAPI -LLL -H ldap://"$dc_name" -b "CN=Sites,$config_context" -s sub "(objectclass=site)" 2>/dev/null |\
+                                                                                                                grep "dn: CN=" |\
+                                                                                                                awk -F 'CN=' '{print substr($2, 1, length($2)-1)}')"
+
+    echo "$site_list"
+
+}
+
 get_dc_list() {
     local domain_realm="$1"
     local site_name="$2"
