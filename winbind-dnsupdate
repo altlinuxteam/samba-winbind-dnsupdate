@@ -327,9 +327,10 @@ get_site_name() {
     local ret=0
     local site_name=
 
-    site_name="$(wbinfo --dsgetdcname="$domain_realm" | tail -n1)" || ret=1
-    if [ $ret -eq 1 ] || grep -q "Could not find dc for" <<< "$site_name"; then
+    site_name="$(net ads lookup | grep "Client Site Name:" | awk '{print $NF}')" || ret=1
+    if [ $ret -eq 1 ] || grep -q "Didn't find the cldap server!" <<< "$site_name"; then
         log_error "Can't get site name."
+        log_error "$site_name"
     else
         echo "$site_name"
     fi
