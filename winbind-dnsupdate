@@ -381,28 +381,36 @@ get_reacheble_dns_server() {
     local site_name="$2"
     local fqdn_name="$3"
     local ret=0
-    local dns_reacheble=
+    local dns_reacheble=0
     local dc_hostname=
+    local dc_list_in_site=
+    local dc_list=
+    local site_list=
 
-    log_info "Trying to get a list of domain controllers."
-    dc_list="$(get_dc_list "$domain_realm" "$site_name")"  || ret=1
+    log_info "Trying to get a list of domain controllers in site."
+    dc_list_in_site="$(get_dc_list "$domain_realm" "$site_name" )"  || ret=1
     log_info "Trying to find an available DNS server."
     if [ $ret -eq 0 ]; then
-        for dc_name in $dc_list; do
-            dns_reacheble=0
-            check_dns_servers_reacheble "$fqdn_name" "$dc_name" || dns_reacheble=1
-            if [ $dns_reacheble -eq 0 ]; then
-                dc_hostname="$(sed 's/.$//' <<< "$dc_name")"
-                echo "$dc_hostname"
-                break
-            fi
-        done
-
+        check_reacheble_loop "$fqdn_name" "$dc_list_in_site" || dns_reacheble=1
         if [ $dns_reacheble -eq 1 ]; then
-            log_error "Unable to find an available DNS server for the $site_name."
-            ret=1
+            log_warning "Unable to find an available DNS server for the $site_name."
+            log_info "Trying to get a list of all domain controllers"
+            site_list="$(get_site_list)"
+            for other_site_name in $site_list; do
+                if [ "$other_site_name" != "$site_name" ]; then
+                    dc_list="$(get_dc_list "$domain_realm" "$other_site_name")" || ret=1
+                    check_reacheble_loop "$fqdn_name" "$dc_list" || ret=1
+                else
+                    continue
+                fi
+            done
         fi
     fi
+
+    if [ $ret -eq 1 ]; then
+        log_error "Unable to find an available DNS server"
+    fi
+
     return $ret
 }
 
