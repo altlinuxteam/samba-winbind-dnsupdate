@@ -376,6 +376,26 @@ get_dc_list() {
     fi
 }
 
+check_reacheble_loop() {
+    local fqdn_name="$1"
+    local dc_list="$2"
+    local dns_reacheble=
+    local ret=1
+
+    for dc_name in $dc_list; do
+        dns_reacheble=0
+        check_dns_servers_reacheble "$fqdn_name" "$dc_name" "$dns_reacheble" || dns_reacheble=1
+        if [ $dns_reacheble -eq 0 ]; then
+            dc_hostname="$(sed 's/.$//' <<< "$dc_name")"
+            echo "$dc_hostname"
+            ret=0
+            break
+        fi
+    done
+
+    return $ret
+}
+
 get_reacheble_dns_server() {
     local domain_realm="$1"
     local site_name="$2"
