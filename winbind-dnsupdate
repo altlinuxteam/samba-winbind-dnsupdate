@@ -962,13 +962,13 @@ main() {
     log_info "Trying to get the site name."
     site_name="$(get_site_name "$domain_realm")"
     log_info "Site: $site_name."
-    dc_hostname="$(get_reacheble_dns_server "$domain_realm" "$site_name" "$fqdn_name" )" || ret=1
     if [ $ret -eq 0 ]; then
         # Host kinit
         set_cache_name
         log_info "Get host credentials."
         host_kinit "$upper_hostname" "$domain_realm"
         log_info "Retrieving host credentials successfully."
+        dc_hostname="$(get_reacheble_dns_server "$domain_realm" "$site_name" "$fqdn_name")"
 
         if [ "$update_ipv4" -eq 1 ]; then
             log_info "Update IPv4."
