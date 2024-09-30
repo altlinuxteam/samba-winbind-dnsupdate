@@ -6,10 +6,11 @@ Release: alt1
 
 Summary: Dynamic dns update for winbind backend
 License: GPLv3
+Group: System/Configuration/Networking
+
 URL: https://github.com/altlinuxteam/samba-winbind-dnsupdate
 VCS: https://github.com/altlinuxteam/samba-winbind-dnsupdate
 
-Group: System/Configuration/Networking
 Source: %name-%version.tar
 
 # actually not anymore but e2k has a standalone girar
