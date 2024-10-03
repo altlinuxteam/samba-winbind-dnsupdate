@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-### diable pipefail error
+### disable pipefail error
 # shellcheck disable=SC3040
 ### disable local vars error
 # shellcheck disable=SC3043
@@ -27,7 +27,7 @@
 # shellcheck disable=SC3011
 ### disable trap ERR undefined
 # shellcheck disable=SC3047
-### disable -n flag for echo indefined error
+### disable -n flag for echo undefined error
 # shellcheck disable=SC3037
 ### disable /bin/shell-getopt error
 # shellcheck disable=SC1091
@@ -50,7 +50,7 @@ Options:
   -v, --version                 Display version number
   -a, --all                     Enable update all DNS records type (IPv4,IPv6,PTR)
   -6, --update-ipv6             Enable update IPv6 DNS records
-  -d, --daemon                  For send log to journalctl when programm run as systemd unit
+  -d, --daemon                  For send log to journalctl when program run as systemd unit
   -t, --ttl <time>              Set TTL
   --allow-ipv4-ptr-update       Enable update IPv4 (A) PTR DNS records
   --allow-ipv6-ptr-update       Enable update IPv6 (AAAA) PTR DNS records
@@ -231,7 +231,7 @@ host_kinit() {
         log_error "$result" && return 1)
 }
 
-check_dns_servers_reacheble() {
+check_dns_servers_reachable() {
     local host_name="$1"
     local dc_name="$2"
     local ret=0
@@ -263,7 +263,7 @@ check_exist_ptr_record() {
         ptr_record_exist=1
         log_info "PTR record not exists."
     else
-        log_info "PTR recotd exist."
+        log_info "PTR record exist."
     fi
     return $ptr_record_exist
 }
@@ -377,16 +377,16 @@ get_dc_list() {
     fi
 }
 
-check_reacheble_loop() {
+check_reachable_loop() {
     local fqdn_name="$1"
     local dc_list="$2"
-    local dns_reacheble=
+    local dns_reachable=
     local ret=1
 
     for dc_name in $dc_list; do
-        dns_reacheble=0
-        check_dns_servers_reacheble "$fqdn_name" "$dc_name" "$dns_reacheble" || dns_reacheble=1
-        if [ $dns_reacheble -eq 0 ]; then
+        dns_reachable=0
+        check_dns_servers_reachable "$fqdn_name" "$dc_name" "$dns_reachable" || dns_reachable=1
+        if [ $dns_reachable -eq 0 ]; then
             dc_hostname="$(sed 's/.$//' <<< "$dc_name")"
             echo "$dc_hostname"
             ret=0
@@ -397,12 +397,12 @@ check_reacheble_loop() {
     return $ret
 }
 
-get_reacheble_dns_server() {
+get_reachable_dns_server() {
     local domain_realm="$1"
     local site_name="$2"
     local fqdn_name="$3"
     local ret=0
-    local dns_reacheble=0
+    local dns_reachable=0
     local dc_hostname=
     local dc_list_in_site=
     local dc_list=
@@ -412,15 +412,15 @@ get_reacheble_dns_server() {
     dc_list_in_site="$(get_dc_list "$domain_realm" "$site_name" )"  || ret=1
     log_info "Trying to find an available DNS server."
     if [ $ret -eq 0 ]; then
-        check_reacheble_loop "$fqdn_name" "$dc_list_in_site" || dns_reacheble=1
-        if [ $dns_reacheble -eq 1 ]; then
+        check_reachable_loop "$fqdn_name" "$dc_list_in_site" || dns_reachable=1
+        if [ $dns_reachable -eq 1 ]; then
             log_warning "Unable to find an available DNS server for the $site_name."
             log_info "Trying to get a list of all domain controllers"
             site_list="$(get_site_list)"
             for other_site_name in $site_list; do
                 if [ "$other_site_name" != "$site_name" ]; then
                     dc_list="$(get_dc_list "$domain_realm" "$other_site_name")" || ret=1
-                    check_reacheble_loop "$fqdn_name" "$dc_list" || ret=1
+                    check_reachable_loop "$fqdn_name" "$dc_list" || ret=1
                 else
                     continue
                 fi
@@ -497,7 +497,7 @@ get_ip_from_hostname() {
                 fi
             else
                 log_warning "Can not parse IP address."
-                log_warning "AWK errror: $ip."
+                log_warning "AWK error: $ip."
             fi
         else
             log_warning "Can not resolve hostname: $hostname."
@@ -522,7 +522,7 @@ get_dc_hostname() {
             fi
         else
             log_warning "Can not parse domain controller hostname."
-            log_warning "AWK errror: $dc."
+            log_warning "AWK error: $dc."
         fi
     else
         log_warning "Wbinfo error:"
@@ -555,11 +555,11 @@ get_connection_iface_to_ldap() {
     
     if out="$(ip route get dport 389 "$dc_ip")"; then
         if connect_iface="$(awk -F'dev ' 'NR==1 {print $2}' <<< "$out" | awk '{print $1}' 2>&1)"; then
-            log_info "Successful. Intraface name: $connect_iface."
+            log_info "Successful. Interface name: $connect_iface."
             echo -n "$connect_iface" && ret=0
         else
             log_warning "Can not parse connection interface."
-            log_warning "AWK errror: $connect_iface."
+            log_warning "AWK error: $connect_iface."
         fi
     else
         log_warning "Ip route error: $out."
@@ -576,7 +576,7 @@ get_old_addr() {
         if old_ip_addr="$(get_ip_from_hostname "$hostname" "$address_family" "$dc_hostname")"; then
             echo -n "$old_ip_addr" && ret=0
         else
-            log_error "Can't get old IP addres."
+            log_error "Can't get old IP address."
         fi
     return $ret
 }
@@ -594,7 +594,7 @@ get_iface_ipv4_addr() {
                 log_warning "Invalid IPv4 address: $ip."
             fi
         else
-            log_warning "Can't get current IPv4 addres."
+            log_warning "Can't get current IPv4 address."
             log_warning "Parse IPv4 address error: $ipv4_addr."
         fi
     else
@@ -617,7 +617,7 @@ get_iface_ipv6_addr(){
                 log_warning "Invalid IPv6 address: $ip"
             fi
         else
-            log_warning "Can't get current IPv6 addres."
+            log_warning "Can't get current IPv6 address."
             log_warning "Parse IPv6 address error: $ipv4_addr."
         fi
     else
@@ -927,7 +927,7 @@ success_end_message(){
     log_info "The update was successful."
 }
 
-# Destory host credentials
+# Destroy host credentials
 destroy_credentials() {
     log_info "Destroy host credential."
     kdestroy -A > /dev/null 2>&1
@@ -969,7 +969,7 @@ main() {
         log_info "Get host credentials."
         host_kinit "$upper_hostname" "$domain_realm"
         log_info "Retrieving host credentials successfully."
-        dc_hostname="$(get_reacheble_dns_server "$domain_realm" "$site_name" "$fqdn_name")"
+        dc_hostname="$(get_reachable_dns_server "$domain_realm" "$site_name" "$fqdn_name")"
 
         if [ "$update_ipv4" -eq 1 ]; then
             log_info "Update IPv4."
