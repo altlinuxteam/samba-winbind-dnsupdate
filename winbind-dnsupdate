@@ -54,6 +54,7 @@ Options:
   -t, --ttl <time>              Set TTL
   --allow-ipv4-ptr-update       Enable update IPv4 (A) PTR DNS records
   --allow-ipv6-ptr-update       Enable update IPv6 (AAAA) PTR DNS records
+  --dconf-enable                Enable reading parameters from dconf
 
 EOF
 exit 0;
@@ -73,7 +74,7 @@ OPTIONS_LIST="help,
               update-ipv6,
               allow-ipv4-ptr-update,
               allow-ipv6-ptr-update,
-              disable-dconf,
+              enable-dconf,
               all,
               only,
               ttl:"
@@ -88,7 +89,7 @@ OPTIONS_SHORT_LIST="h,
 TEMP=$(getopt -n "$PROG_NAME" -o "$OPTIONS_SHORT_LIST" -l "$OPTIONS_LIST" -- "$@")
 eval set -- "$TEMP"
 
-dconf_enable=1
+enable_dconf_read=0
 ## DNS update options
 enable_update_ipv6=0 # Enable update ipv6
 enable_update_ipv4=1 # Enable update ipv4
@@ -128,8 +129,8 @@ while :; do
         --allow-ipv6-ptr-update)
             ipv6_ptr_update=1 
             ;;
-        --disable-dconf)
-            dconf_enable=0
+        --enable-dconf)
+            enable_dconf_read=1
             ;;
         --) shift; break
             ;;
@@ -139,7 +140,7 @@ while :; do
     shift
 done
 
-if [ $dconf_enable -eq 1 ]; then
+if [ $enable_dconf_read -eq 1 ]; then
     enable_update_ipv4="$(dconf read /Software/BaseALT/Policies/SambaWinbind/enable_update_ipv4)"
     enable_update_ipv6="$(dconf read /Software/BaseALT/Policies/SambaWinbind/enable_update_ipv6)"
     ipv4_ptr_update="$(dconf read /Software/BaseALT/Policies/SambaWinbind/ipv4_ptr_update)"

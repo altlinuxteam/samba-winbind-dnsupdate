@@ -7,5 +7,5 @@
 ##   -t, --ttl [time]              Set TTL
 ##   --allow-ipv4-ptr-update       Enable update IPv4 PTR records
 ##   --allow-ipv6-ptr-update       Enable update IPv6 PTR records
-
-OPTIONS="-d"
+##   --enable-dconf                Enable reading parameters from dconf
+OPTIONS="-d --enable-dconf"

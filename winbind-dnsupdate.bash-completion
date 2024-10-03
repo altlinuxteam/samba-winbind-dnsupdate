@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 _comand_list(){
-    local avil_commands=" --help -h --version -v --daemon -d --update-ipv6 -6 --all -a --ttl -t --allow-ipv4-ptr-update --allow-ipv6-ptr-update --disable-dconf "
+    local avil_commands=" --help -h --version -v --daemon -d --update-ipv6 -6 --all -a --ttl -t --allow-ipv4-ptr-update --allow-ipv6-ptr-update --enable-dconf "
 
     COMPREPLY=()
 
