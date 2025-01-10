@@ -141,11 +141,11 @@ while :; do
 done
 
 if [ $enable_dconf_read -eq 1 ]; then
-    enable_update_ipv4="$(dconf read /Software/BaseALT/Policies/SambaWinbind/enable_update_ipv4)"
-    enable_update_ipv6="$(dconf read /Software/BaseALT/Policies/SambaWinbind/enable_update_ipv6)"
-    ipv4_ptr_update="$(dconf read /Software/BaseALT/Policies/SambaWinbind/ipv4_ptr_update)"
-    ipv6_ptr_update="$(dconf read /Software/BaseALT/Policies/SambaWinbind/ipv6_ptr_update)"
-    ttl="$(dconf read /Software/BaseALT/Policies/SambaWinbind/ttl)"
+    enable_update_ipv4="$(gsettings get org.altlinux.winbind.dnsupdate enable-update-ipv4)"
+    enable_update_ipv6="$(gsettings get org.altlinux.winbind.dnsupdate enable-update-ipv6)"
+    ipv4_ptr_update="$(gsettings get org.altlinux.winbind.dnsupdate ipv4-ptr-update)"
+    ipv6_ptr_update="$(gsettings get org.altlinux.winbind.dnsupdate ipv6-ptr-update)"
+    ttl="$(gsettings get org.altlinux.winbind.dnsupdate ttl)"
 fi
 
 log() {
